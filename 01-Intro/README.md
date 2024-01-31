@@ -1,5 +1,6 @@
 # 01-Intro
 1. 在Visual Studio中，你可能需要Ctrl+K后Ctrl+F的组合键来使文档特定部分格式化。
 2. 补充[一个网站](https://hackingcpp.com/)，上面有一些cheat sheet，可以参考。
-3. 如果不想用自己的format，可以参考https://clang.llvm.org/docs/ClangFormatStyleOptions.html。
+3. 如果不想用提供的format，可以参考https://clang.llvm.org/docs/ClangFormatStyleOptions.html。
+
 这节课没作业，就把讲过的功能玩一玩、网站收藏一下就行了。
