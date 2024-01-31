@@ -1,0 +1,11 @@
+﻿BasedOnStyle: Microsoft
+BreakAfterAttributes: Leave
+ColumnLimit: 80
+Cpp11BracedListStyle: false
+AllowShortFunctionsOnASingleLine: Inline
+AlignEscapedNewlines: Left
+AccessModifierOffset: -4
+AlwaysBreakTemplateDeclarations: Yes
+RequiresClausePosition: OwnLine
+SpaceAfterTemplateKeyword: false
+# AllowShortCompoundRequirementOnASingleLine : true
