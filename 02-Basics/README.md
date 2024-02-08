@@ -24,10 +24,10 @@
    /* 设操作BitEquiv表示两个数在二进制表示上相同, i32表示32位整数，f32表示32位浮点数。*/
    f32 GetInvSqrt(f32 num)
    {
-   	i32 a <- BitEquiv(num);
-   	i32 b <- 0x5f3759df - (a >> 1);
-   	f32 y <- BitEquiv(b);
-   	return y * (1.5f - (num * 0.5f * y * y));
+       i32 a <- BitEquiv(num);
+       i32 b <- 0x5f3759df - (a >> 1);
+       f32 y <- BitEquiv(b);
+       return y * (1.5f - (num * 0.5f * y * y));
    }
    ```
 
@@ -67,9 +67,132 @@
    #include <map> 
    int main()
    { 
-   	std::map<int, int> m; 
-   	m[0] = m.size();
+       std::map<int, int> m; 
+       m[0] = m.size();
    }
    ```
 
    按照C++17标准规定，`m[0]`是什么？
+
+## 后半部分
+
+1. 写一个`Vector3`类，它还有三个float分量，可以用不超过3个float进行初始化，例如：
+
+   ```c++
+   Vector3 vec; // (0, 0, 0)
+   Vector3 vec2{1}; // (1, 0, 0)
+   Vector3 vec3{1, 2}; //  (1, 2, 0)
+   ```
+
+   同时，定义`operator+`和`operator+=`。试一试，`1+a`在`operator+`写成成员函数时是否可用？写成全局函数时呢？给构造函数加上`explicit`时呢？
+
+   > 这是因为`1`作为函数的参数，进行的是copy initialization，这正是explicit所禁止的；必须写为`Vector3{1}`才可以。
+
+   随后，我们增加比较运算符，比较两个向量的长度。用简短的方法使六个比较运算符都有效。
+
+   别忘了用属性警告用户某些运算符的返回值不应被抛弃。
+
+2. 除了`vector`，其他的容器可以使用Uniform initialization吗？特别地，`map`和`unordered_map`每个元素是一个pair。
+
+3. 有虚函数的类和普通的类相比，有大小上的差别吗？
+
+4. 下面的两个函数构成重载吗？
+
+   ```c++
+   void Test(int);
+   int Test(int);
+   ```
+
+   下面两个呢？`T = void`会有干扰吗？
+
+   ```c++
+   void Test(int);
+   template<typename T> T Test(int);
+   ```
+
+   想一想name mangling的规则，得出你的结论，在编译期上进行测试。
+
+5. 下面的程序中，`bar`返回什么是确定的吗？分别在gcc无优化选项和`-O2`中试试。
+
+   ```c++
+   struct Foo
+   {
+       int foo()
+       {
+           return this ? 42 : 0;
+       }
+   };
+   
+   int bar()
+   {
+       Foo* fptr = nullptr;
+       return fptr->foo();
+   }
+   ```
+
+   这道题的目的是告诉你不要写UB，空指针不能解引用。
+
+6. 写一个三维数组，以存储的类型为模板参数，内部使用摊平的一维连续数组存储，允许使用多维下标运算符进行访问。定义它的拷贝构造函数，想想是否要考虑自赋值问题。
+
+7. 写一个函数，它接受`std::vector<int>&`，使用`<algorithm>`中的`std::ranges::generate`在其中填充斐波那契数列。你只需要填写第二个参数，即一个lambda表达式：
+
+   ```c++
+   void FillFibonacci(std::vector<int>& v)
+   {
+       std::ranges::generate(v, /* 你的回答 */);
+   }
+   ```
+
+   可以认为上面的式子相当于：
+
+   ```c++
+   for(auto& elem : v)
+       elem = YourLambda();
+   ```
+
+   > 提示：你可以在capture中创建新的变量，例如`[a = 0, b = 1]`。
+
+8. 定义一个scoped enumeration `Color`，有red, blue, green三个枚举量。编写一个`switch`，使得`red`和`green`都打印`Hello`，对`blue`打印`World`。使用`using enum`来避免每个枚举都写`Color::`，并使用属性防止编译器对fallthrough给出警告。
+
+9. 对下面的结构体的数组调用sort，使用lambda表达式进行比较。
+
+   ```c++
+   struct DijkstraInfo
+   {
+       int vertexID;
+       int distance; // 作为比较的标准
+   };
+   
+   std::ranges::sort(vec, /* 你的lambda表达式 */ );
+   ```
+
+   想一想，是否可以把两个参数类型都写成`const auto&`？
+
+   如果你写成一个函数：
+
+   ```c++
+   bool Func(const auto& a, const auto& b);
+   ```
+
+   它能否像lambda表达式一样传入`sort`？还是需要实例化？为什么？
+
+   如果你写成一个下面的结构体：
+
+   ```c++
+   template<typename T>
+   struct Functor
+   {
+       // 如果你的编译器暂时不支持static operator()，把static去掉.
+       static bool operator()(const T& a, const T& b){ /* ... */ }
+   };
+   ```
+
+   它能否像lambda表达式一样传入`sort`？还是需要实例化？为什么？
+
+   希望你通过这个例子理解模板实例化的要求, 可以通过包装在无需实例化的实体中绕过限制, 推迟到调用的时候再实例化, 此时就不需要程序员手动实例化.
+
+10. 解答Lee的问题; 你应该如果解决?
+
+    ![](2.jpg)
+
+    ![](1.jpg)
