@@ -30,14 +30,14 @@ int main()
     auto it = outer_view.begin();
     std::println("No search when getting iterator...comparision begin at "
                  "iterating the result view.");
-    for (auto m : *it)
+    for (auto m : *it) // 对*it2迭代，才会进行判断。
         std::print("{} ", m.a);
     // 为什么*it（即lazy_split_view产生的view）只能是forward_range呢？因为它
     // 需要不断地判断是否等于delimiter，才能知道是否到达了end，因此它只能从前向后不断迭代。
     // 再次迭代*it，还是会重新判断一遍。
 
     std::println("For split....");
-    auto it2 = outer_view2.begin();
+    auto it2 = outer_view2.begin(); // 已经开始进行判断了。
     std::println("\nAfter searching...no comparision is needed.");
     for (auto m : *it2)
         std::print("{} ", m.a);
@@ -45,9 +45,9 @@ int main()
     // 早已判断好了end的位置。
     // 再次迭代*it2，不会重新判断了。
 
-    // 例如对于random access range，split里面m完全知道了范围[begin,
-    // end)，可以使用m[index]访问；而lazy_split_view
+    // 例如对于random access range，split里*it2完全知道了范围[begin,
+    // end)，可以使用auto n = (*it2).begin(); n[index]访问；而lazy_split_view
     // 不能确定end，因此没法提供random access
-    // （否则无法知道m[index]是否超过了end，对吧？），只能边迭代边判断。
+    // （否则无法知道n[index]是否超过了end，对吧？），只能边迭代边判断。
     return 0;
 }
