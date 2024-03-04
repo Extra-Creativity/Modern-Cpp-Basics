@@ -27,10 +27,10 @@ int main()
     std::ranges::split_view outer_view2{ source, delimiter };
 
     std::println("For lazy split....");
-    auto it = outer_view.begin();
+    auto it = outer_view.begin(); // 无判断发生
     std::println("No search when getting iterator...comparision begin at "
                  "iterating the result view.");
-    for (auto m : *it) // 对*it2迭代，才会进行判断。
+    for (auto m : *it) // 对*it迭代，才会进行判断。
         std::print("{} ", m.a);
     // 为什么*it（即lazy_split_view产生的view）只能是forward_range呢？因为它
     // 需要不断地判断是否等于delimiter，才能知道是否到达了end，因此它只能从前向后不断迭代。
@@ -39,9 +39,9 @@ int main()
     std::println("For split....");
     auto it2 = outer_view2.begin(); // 已经开始进行判断了。
     std::println("\nAfter searching...no comparision is needed.");
-    for (auto m : *it2)
+    for (auto m : *it2) // 无判断发生
         std::print("{} ", m.a);
-    // 为什么*it（即split_view产生的view）可以保持原来view的category呢？因为它
+    // 为什么*it2（即split_view产生的view）可以保持原来view的category呢？因为它
     // 早已判断好了end的位置。
     // 再次迭代*it2，不会重新判断了。
 

@@ -82,4 +82,48 @@
        std::print("{} ", num); // 1, 1, 2, 3, 5
    ```
 
+
+## Function
+
+1. 猜测一下为什么`std::bind_back/front`的绑定需要`std::ref`才能真正地把引用绑定上去；这和move-only的对象`bind`后不能再调用的原因密切相关。
+
+   > Hint：move-only不能调用，说明在函数调用的过程中发生了拷贝；那么绑定的对象到函数的参数其实是一个...（答案呼之欲出啊）
+   >
+   > 所以，`std::reference_wrapper`由于可以...，因此这次拷贝相当于把原来的参数绑定在了引用上。
+
+2. 测试一下transparent operator相关的优化：
+
+   ```c++
+   class A
+   {
+   public:
+       A(int init_a) : a{ init_a } { std::println("Construction: a = {}", a); }
+       // 这里写一下默认的三路比较运算符和==
    
+       // 这里写一下与int比较的三路比较运算符和==
+   
+   private: // 我们用int代表一个昂贵的构造对象。
+       int a;
+   };
+   
+   int main()
+   {
+       /* 以A为key的std::set类型 */ normalSet{ A{ 1 }, A{ 2 }, A{ 3 } };
+       /* 同上，但支持transparent operator的类型 */ goodSet{ A{ 1 }, A{ 2 }, A{ 3 } };
+   
+       std::println("Begin testing...");
+       std::println("----For normal set.");
+       normalSet.find(1);
+   
+       std::println("----For good set.");
+       goodSet.find(1);
+   
+       return 0;
+   }
+   ```
+
+   看看输出，是不是真的少了一次构造。
+
+3. 既然`std::function`相关的类有性能损失，为什么不总是使用模板呢？构想一个简单的任务，它使用模板会非常不方便去存储各种函数体。
+
+   > 提示：想想什么时候必须要统一类型？
