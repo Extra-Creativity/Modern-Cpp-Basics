@@ -49,7 +49,7 @@
 
    ```c++
    // 函数参数使用std::string_view更好一点，不过我们还没讲到流与字符串，所以就略过了。
-   // 可以简单说一下，他和span<char>十分相似，存储了两个char指针，代表了一段字符范围。
+   // 可以简单说一下，他和span<const char>十分相似，存储了两个const char指针，代表了一段字符范围。
    std::vector<std::string> SplitString(const std::string& str, 
                                         const std::string& delim)
    {
