@@ -17,6 +17,8 @@
 
 5. 事实上`stdr::to`既可以接受一个模板作为模板参数（例如`std::vector`），也可以接受一个类型作为模板参数（例如`std::vector<int>`）。
 
+6. `pop_heap`保证被pop出来的元素在原来的最后一个位置（即`[first, last - 1)`构成新的堆，而`last - 1`是原来的堆顶），并不是invalid。
+
 # Assignment
 
 ## Ranges
