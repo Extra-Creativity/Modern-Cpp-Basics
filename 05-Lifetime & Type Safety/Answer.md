@@ -160,7 +160,7 @@
    >     }
    > private:
    >     alignas(T) std::byte buffer_[sizeof(T) * N];
-   > 	T* endPtr_;
+   > 	   T* endPtr_ = reinterpret_cast<T*>(buffer);
    > };
    > ```
 
