@@ -111,14 +111,14 @@
 4. 对下面的变量进行内存重用，哪些合法，哪些非法？
 
    ```c++
-   struct A { int a; const float b; } a1;
+   struct A { int a; const float b; } a1 { 1, 1.0f };
    static const int a2 = 2;
    
    int main()
    {
        const int a3 = 2;
        const A a4{ 1, 2.0f };
-       // 重用a1.a是否合法？a1.b是否合法？a2, a3, a4,a, a4.b呢？
+       // 重用a1.a是否合法？a1.b是否合法？a2, a3, a4.a, a4.b呢？
    }
    ```
 
@@ -245,7 +245,7 @@
 6. 对于`std::any`，有一种比较巧妙的使用方法来保留类型的部分信息，从而完成无继承和虚函数的情况下实现不同类型的函数调用。这么说可能有点抽象，我们来看一个例子：
 
    ```c++
-   class AnimalInterface { public: void Talk(int); std::string Walk(); };
+   class AnimalInterface { public: std::string Talk(int); void Walk(); };
    class Dog { 实现上面两个函数; };
    class Cat { 实现上面两个函数; };
    
