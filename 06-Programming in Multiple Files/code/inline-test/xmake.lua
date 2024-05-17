@@ -1,0 +1,23 @@
+target("inline-static-lib")
+    set_kind("static")
+    add_headerfiles("*.h")
+    add_files("func.cpp")
+
+target("inline-static-test")
+    set_kind("binary")
+    add_deps("inline-static-lib")
+    add_headerfiles("*.h")
+    add_files("main.cpp")
+
+target("inline-dynamic-lib")
+    set_kind("shared")
+    add_files("func.cpp")
+    add_headerfiles("*.h")
+    add_defines("FUNC_H_EXPORT_")
+
+target("inline-dynamic-test")
+    set_kind("binary")
+    add_deps("inline-dynamic-lib")
+    add_headerfiles("*.h")
+    add_files("main.cpp")
+    add_defines("FUNC_H_IMPORT_")

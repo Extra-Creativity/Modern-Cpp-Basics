@@ -1,0 +1,32 @@
+module;
+#include <iostream>
+#include <cstdint>
+#include <format>
+#include <string>
+export module Person; // denote that it's a module interface.
+
+export class Person;
+export Person* CreatePerson();
+export void PrintPerson(Person*);
+export void DestroyPerson(Person*);
+
+module:private;
+
+class Person
+{
+public:
+    Person(const std::string& init_name, std::uint64_t init_id):
+        name{init_name}, id{init_id} {}
+    
+    void Print() const {
+        std::cout << std::format("Person #{}: {}\n", id, name);
+    }
+
+private:
+    std::string name;
+    std::uint64_t id;
+};
+
+Person* CreatePerson() { return new Person{"Sheng", 6}; }
+void PrintPerson(Person* p) { p->Print(); }
+void DestroyPerson(Person* p) { delete p; }

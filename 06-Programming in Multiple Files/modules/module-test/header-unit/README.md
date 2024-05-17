@@ -1,0 +1,1 @@
+就是在Person.cpp中新增了import "Old.h"。在Visual Studio编译时，你可能需要把“扫描源以查找模块依赖关系”设置为“是”来成功编译。

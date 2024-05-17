@@ -1,0 +1,41 @@
+export module Person; // denote that it's a module interface.
+
+import std;
+
+export class Person
+{
+public:
+    Person(const std::string& init_name, std::uint64_t init_id):
+        name{init_name}, id{init_id} {}
+    
+    void Print() const {
+        std::println("Person #{}: {}", id, name);
+    }
+
+private:
+    std::string name;
+    std::uint64_t id;
+};
+
+// You still need to declare before use, if it's impossible to define before use.
+// Here you can just put the definition, we're just showing an example.
+void InnerMethod();
+
+// You can write definition in module interface; it obeys ODR!
+export void HelloWorld()
+{
+    std::println("Hello, world!");
+    std::println("Calling non-exported method...");
+    InnerMethod();
+}
+
+void InnerMethod()
+{
+    std::println("No export, not visible from other modules.");
+}
+
+export template<typename T>
+void TemplateMethod()
+{
+    std::println("This is in template method.");
+}

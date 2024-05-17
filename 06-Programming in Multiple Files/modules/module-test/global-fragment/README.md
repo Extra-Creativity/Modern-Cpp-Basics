@@ -1,0 +1,1 @@
+就是在Person.cpp中新增了module;这个global fragment，从而可以用宏控制其行为。

@@ -1,0 +1,16 @@
+module;
+#include <string>
+export module Person; // denote that it's a module interface.
+
+export import :Utils;
+
+export class Person
+{
+public:
+    Person(const std::string& init_name, std::uint64_t init_id);
+    void Print() const;
+
+private:
+    std::string name;
+    std::uint64_t id;
+};

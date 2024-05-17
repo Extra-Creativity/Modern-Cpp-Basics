@@ -1,0 +1,3 @@
+演示了private fragment的用法；特别注意，如果一个module定义了private fragment，那么它只能有一个primary interface作为unit，不能再有其他的unit（包括partition或者implementation）。
+
+我个人认为在以上限制下其作用十分有限，除非你甚至不想暴露一个类的public方法；gcc和clang也没实现，了解就行了。

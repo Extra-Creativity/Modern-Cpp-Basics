@@ -1,0 +1,18 @@
+module;
+#include <iostream>
+#include <format>
+#include <string>
+module Person:Order;
+
+struct Order
+{
+    int count;
+    std::string name;
+    double price;
+
+    Order(int c, const std::string& n, double p)
+        : count{c}, name{n}, price{p} { }
+    void Print() const {
+        std::cout << std::format("count = {}, name = {}, price = {}\n", count, name, price);
+    }
+};

@@ -1,0 +1,10 @@
+module;
+#include <iostream>
+export module Person:Utils;
+
+import :Order;
+
+export void PrintOrder(){
+    std::cout << "\t, with order\n\t";
+    Order{1, "apple", 7.3}.Print();
+}

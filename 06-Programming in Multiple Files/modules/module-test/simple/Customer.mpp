@@ -1,0 +1,15 @@
+export module Customer;
+export import Person; // users can also get access to Person.
+import std;
+
+export class Customer : public Person
+{
+public:
+    Customer(const std::string& init_name, std::uint64_t init_id):
+        Person{ "customer " + init_name, init_id} {}
+
+    void Print() const {
+        std::println("This is a customer...");
+        Person::Print();
+    }
+};

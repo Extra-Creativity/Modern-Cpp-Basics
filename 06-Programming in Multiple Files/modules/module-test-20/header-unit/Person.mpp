@@ -1,0 +1,26 @@
+module;
+#include <iostream>
+#include <cstdint>
+#include <string>
+export module Person; // denote that it's a module interface.
+
+export class Person
+{
+public:
+    Person(const std::string& init_name, std::uint64_t init_id);
+    void Print() const;
+
+private:
+    std::string name;
+    std::uint64_t id;
+};
+
+export void HelloWorld();
+
+// Similar to header files, template definition should still be in
+// interface file, otherwise link error.
+export template<typename T>
+void TemplateMethod()
+{
+    std::cout << "This is in template method.\n";
+}
