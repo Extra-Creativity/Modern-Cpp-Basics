@@ -1,5 +1,6 @@
 module;
 #include <string>
+#include <cstdint>
 export module Person; // denote that it's a module interface.
 
 export import :Utils;
