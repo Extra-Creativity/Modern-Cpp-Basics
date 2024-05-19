@@ -9,5 +9,7 @@ set_policy("build.warning", true)
 set_warnings("all")
 set_encodings("utf-8")
 
+set_toolchains("clang-18")
+set_runtimes("c++_shared")
 includes("module-test-20")
 -- includes("module-test") -- 需要测试import std就用这个，否则用上面这个

@@ -1,4 +1,3 @@
-add_rules("use-clang")
 set_group("module-example-20")
 
 target("module-simple")
