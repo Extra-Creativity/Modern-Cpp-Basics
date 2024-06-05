@@ -50,7 +50,7 @@
    template<typename T>
    const T& min(const T& a, const T& b) noexcept(noexcept(a < b))
    {
-   	return a < b ? a : b;
+       return a < b ? a : b;
    }
    ```
 
@@ -194,7 +194,7 @@
    class A
    {
    public:
-   	void AddAttribute();
+       void AddAttribute();
    private:
        // Invariants: names.size() == scores.size();
        std::vector<std::string> names;
