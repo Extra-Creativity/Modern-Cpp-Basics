@@ -31,7 +31,7 @@
 
    **总结：不要把`std::optional`作为函数参数**。
 
-   在P2998里，`std::optional<T&>`与指针是比较类似的：
+   在P2988里，`std::optional<T&>`与指针是比较类似的：
 
    ```c++
    void Test(std::optional<const std::vector<int>&> optVectorPtr)
@@ -63,3 +63,105 @@
    ```
 
    这是因为`std::optional<int>`是临时的，自然指向它内部值的指针在其析构后也就悬垂了。
+
+2. 略，比较简单。
+
+3. 内部的`noexcept(a < b)`判断了`a < b`是否有noexcept specifier，如果是则得到true，否则为false，再配合外面的`noexcept`，于是表示当`a < b`为`noexcept`时，当前函数也为`noexcept`，否则反之。
+
+4. 这个题比较麻烦，我们用基类的方式做一下：
+
+   ```c++
+   #include <algorithm>
+   #include <memory>
+   
+   template<typename T>
+   class ListBase
+   {
+   protected:
+       ListNode<T> sentinel_{ &sentinel_, &sentinel_ };
+       ~ListBase()
+       {
+           for (auto it = sentinel_.next; it != &sentinel_;)
+           {
+               it = it->next;
+               delete it->prev; 
+           }
+           
+           // 错误写法：在it删除后继续使用。
+           // for (auto it = sentinel_.next; it != &sentinel_; it = it->next)
+           //     delete it;
+       }
+   };
+   
+   template<typename T>
+   class List : public ListBase<T>
+   {
+       auto& GetSentinel_() { return this->sentinel_; }
+       
+   public:
+       class ConstIterator
+       {
+           const ListNode<T> *node_;
+   
+       public:
+           ConstIterator(const ListNode<T> *node) : node_{ node } {}
+           ConstIterator operator++(int) noexcept
+           {
+               auto node0 = node_;
+               node_ = node_->next;
+               return ConstIterator{ node0 };
+           }
+   
+           ConstIterator &operator++() noexcept
+           {
+               node_ = node_->next;
+               return *this;
+           }
+           const T &operator*() const noexcept { return node_->val; }
+           const T *operator->() const noexcept { return &(node_->val); }
+           bool operator==(ConstIterator another) const noexcept
+           {
+               return node_ == another.node_;
+           }
+       };    
+       
+       template<typename It>
+       List(It begin, It end)
+       {
+           auto pos = &this->sentinel_;
+           while (begin != end)
+           {
+               std::unique_ptr<ListNode<T>> ptr{ new ListNode<T>{ pos, pos->next,
+                                                            *begin } };
+               ++begin;
+   
+               pos->next->prev = ptr.get();
+               pos->next = ptr.release();
+               pos = pos->next;
+           }
+           return;
+       }
+   
+       auto begin() const { return ConstIterator{ this->sentinel_.next }; }
+       auto end() const { return ConstIterator{ &this->sentinel_ }; }
+       
+       List(const List& another) : List{ another.begin(), another.end() } {}
+       void swap(List &another)
+       {
+           std::swap(GetSentinel_().prev, GetSentinel_().prev);
+           std::swap(GetSentinel_().next, GetSentinel_().next);
+       }
+       
+       List& operator=(const List &another)
+       {
+           // 尽管自赋值在Copy-and-swap中不用判断也能处理正确，但是提前离开减少拷贝也是有益的。
+           if (this == &another)
+               return *this;
+           List list{ another };
+           swap(list);
+           return *this;
+       }
+   };
+   ```
+
+5. 不能，因为如果`scores`插入时异常抛出，则`names`和`scores`的数量将会不一致。一种解决方法是把`name`和`score`合并为一个结构体，只保留一个`std::vector<Info>`；除此之外也可以进行`try-catch`，如果抛出了则看二者大小是否一致，不一致则pop出去一个，然后`throw;`重新抛出异常。我们在模板这一章会写一个通用的`PushbackGuard`来对任意数量的`std::vector`进行整体的数量保持。
