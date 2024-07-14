@@ -123,13 +123,57 @@
    ```
 
 4. + `std::string_view`的类型足够小，它本身又携带了一个指针，传递它的引用类似于传递二级指针。不如直接值类型传递，还有可能放到寄存器里。
-   + `(const std::string_view&, std::size_t&)`会违反strict aliasing，因为`std::size_t&`有可能引用`std::string_view`的`size`；而传递值类型则没问题，因为它的`std::size_t`是拷贝来的，肯定不会是引用所引用的对象。
+   + `(const std::string_view&, std::size_t&)`会出现指针aliasing而关闭潜在的优化机会，因为`std::size_t&`有可能引用`std::string_view`的`size`；而传递值类型则没问题，因为它的`std::size_t`是拷贝来的，肯定不会是引用所引用的对象。
 
    特别地，在MSVC（x86-64）中，结构体被规定不能放入寄存器（不管它多么小），必须放入栈里，结构体参数会被翻译成传递指针；而且MSVC在alias上的优化相当保守，使得传递什么都是一样的。前者在MSVC（ARM）上就没问题了，后者则在任意平台都有问题。
 
-   大多数情况下MSVC的这种表现不是严重问题，因为就统一用`std::string_view`就行了。如果你极端地注意性能，例如某段代码甚至要在x86-64汇编级别进行优化了，那么可以使用`const char* ptr, std::size_t len`来使用两个参数进行传递，从而可以放到寄存器上。
+   大多数情况下MSVC的这种表现不是严重问题，因此就统一用`std::string_view`就行了。如果你极端地注意性能，例如某段代码甚至要在x86-64汇编级别进行优化了，那么可以使用`const char* ptr, std::size_t len`来使用两个参数进行传递，从而可以放到寄存器上。
 
    > Credit：[A footnote on "Three reasons to pass `std::string_view` by value" – Arthur O'Dwyer – Stuff mostly about C++](https://quuxplusone.github.io/blog/2021/11/19/string-view-by-value-ps/)
+
+5. 输出如下：换了facet之后才能检测出来。
+
+   ```text
+   0 0
+   1 1
+   一八九八
+   ```
+
+6. ```c++
+   std::format("{:<10} {:<10}", 10086, 10085); // 也可以是": <10"，但是默认就是空格，所以可以不写
+   std::format("{0:b} {0:o} {0:#X}", 1898); // 1898是北大诞生的年份...
+   std::format("{0:.7} {:.7f}", std::numbers::pi);
+   std::format("{:?}", "123\n\t");
+   ```
+
+7. 有了`std::range_formatter`后定制起来非常简单：
+
+   ```c++
+   template<typename T> struct std::formatter<List<T>> : std::range_formatter<T>
+   {
+       constexpr formatter() { this->set_separator("=>"); }
+   };
+   ```
+
+8. ```c++
+   template<> struct std::formatter<Data>
+   {
+       constexpr auto parse(std::format_parse_context& context)
+       {
+           auto it = context.begin();
+           if (it != context.end() && *it != '}')
+               throw std::format_error{ "Don't support specifiers currently." };
+           return it;
+       }
+   
+       auto format(const Data& data, auto& context) const
+       {
+           return std::format_to(context.out(), "{} {}", data.a, data.b);
+       }
+   };
+   ```
+
+   如果想要支持格式化符，需要加上“分隔符”来分隔成员的格式化，然后可以想想怎么方便地实现。
 
 
 
