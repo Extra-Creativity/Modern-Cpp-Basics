@@ -175,7 +175,77 @@
 
    如果想要支持格式化符，需要加上“分隔符”来分隔成员的格式化，然后可以想想怎么方便地实现。
 
+9. 对`istream_iterator`，输出`123456789`，对`istreambuf_iterator`原封不动输出。不妨考虑如下代码：
 
+   ```c++
+   char c;
+   while (true) { std::cin >> c; }
+   ```
+
+   此时，输入会自动跳过空格、换行等；这是受到IO manipulator控制的，如果我们加上：
+
+   ```c++
+   str >> std::noskipws;
+   ```
+
+   就不会有这个问题了。`streambuf_iterator`是调用它的`sgetc`的，不受到IO manipulator的影响。如果你忘了，不妨回看一下我们overview的整体架构图。
+
+10. + 只换用binary mode不能解决问题，因为filebuf无论如何都要经过`codecvt`再写回文件。
+
+       + 因为昊字的Unicode是`U+660A`（在UTF-16和UTF-32中都可以直接表示下，因此保持这个编码，即得到`0x660A`）。我们又注意到，`0A`在ASCII中是换行（`\n`）的表示，而我们是以text mode打开的文件，Windows上会转换为`\r\n`，凭空多出来一个字符，于是得到了非法的UTF-16序列。
+
+         解决这个问题的方式也很简单，使用binary mode即可，即：
+
+         ```c++
+         std::wofstream fout{ "test.txt", std::ios::binary };
+         ```
+       
+    + GBK中不存在这个问题，是因为GBK刻意避开了`0A`、`1F`这些相关Windows特殊识别的编码，因此可以直接输出。对于一般的编码规则，还是需要binary mode的。
+    
+    总结一下：
+    
+       + 已经确定了编码（比如已经用外部库转换好了），直接`fstream` + binary mode输入输出就完了
+       + 如果直接使用locale想进行编码的转换，就要利用`wfstream` + locale + binary mode
+       + 如果使用locale想进行编码的转换，但目标编码能保证不覆盖当前系统在文本模式下特殊处理的字符，那不用binary mode也可以。
+
+
+11. ```c++
+    std::ifstream fin{ "test.txt" };
+    fin.exceptions(std::ios::badbit | std::ios::failbit); // 只允许eof，其他抛异常。
+    std::ostringstream str;
+    fin >> str;
+    std::string_view fileContentView = str.view();
+    ```
+    
+    这种方式由于一次性读入，理论上来说比其他方式要更快。
+    
+    > 我们还有一个`operator>>(Func)`没有提到，即可以自定义I/O manipulator作用在流上，感兴趣者可以自行搜索。
+    
+12. 代码如下：
+
+    ```c++
+    std::string s0{ "1.234 567 " };
+    std::spanstream s{ s0 };
+    float a; int b;
+    s >> a >> b;
+    std::println("a = {}, b = {}", a, b);
+    s << b;
+    std::println("get pos = {}, put pos = {}", s.tellg() - std::streampos{0}, 
+                 s.tellp() - std::streampos{0});
+    
+    auto span = s.span(); // 这个本质上就是原来的{ s0.data(), s0.data() + s0.size() };
+    std::println("original string = {},\nunderlying string = {}", s0, 
+                 std::string_view{ span.data(), span.data() + span.size() });
+    ```
+
+    前面的输出不变，最后两行的输出变为：
+
+    ```text
+    original string = 5674 567,
+    underlying string = 567
+    ```
+
+    小明的问题是最后`stringstream`的输入到达了结尾（因为输入数字会在非数字处才停止，而没有左后一个空格作为非数字，就到达了末尾），于是设置了`eofbit`，此时流不再`good`，需要`clear`才可以正常输出。
 
 ## Final
 

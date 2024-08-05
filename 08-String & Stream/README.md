@@ -154,8 +154,147 @@
    struct Data
    {
        int a;
-      	double b;
+       double b;
    };
    ```
 
+9. 我们上课时提到了`istream_iterator`和`istreambuf_iterator`的本质不同；对下面的代码，当`Iter`分别为`std::istream_iterator<char>`和`std::istreambuf_iterator<char>`，请说明输出：
+
+   ```c++
+   #include <iostream>
+   #include <fstream>
+   #include <sstream>
    
+   using Iter = xxx;
+   
+   int main()
+   {
+       std::stringstream str{ "123 456\n789" };
+       std::string s;
+       std::copy(Iter{ str }, Iter{}, std::back_inserter(s));
+       std::cout << s;
+       return 0;
+   }
+   ```
+
+   这种区别的原因是什么？考虑它们分别实际调用的流函数进行说明。
+
+   > 思考题：小明加了一个IO manipulator，就消除了上述问题，应该怎么做？
+
+10. 考虑下面的代码，我们在课上写过：
+
+    ```c++
+    std::wofstream fout{ "test.txt" };
+    fout << L"眼底未名水，胸中黄河月";
+    ```
+
+    但是运行后可以发现并没有输出，我们也说过这是因为默认的locale是global的，而后者默认又是C locale，它的`std::codecvt<wchar_t, char>`总是失败的（即不知道如何处理宽字符）。我们的解决方法是使用`std::locale{ "zh-CN" }`（在Linux/Mac上可能名字不同），于是就有了一个有效的`codecvt`，我们也可以成功转换并输出GBK编码。
+
+    现在我们不妨构想一个新任务：我们希望把`wchar_t`原封不动地输出，即在Windows上是UTF16，在Linux/Mac上是UTF32，同时仍然使用`std::wofstream`。回答以下问题：
+
+       + 直接换用binary mode，能否直接解决问题？
+    
+       + 小昊想，我们给一个新的`codecvt`不就好了？于是ta在cppreference上查找了相关资料，并写下了如下代码：
+    
+         ```c++
+         class WcharFacet
+             : public std::codecvt<wchar_t, char, std::char_traits<wchar_t>::state_type>
+         {
+             using Base =
+                 std::codecvt<wchar_t, char, std::char_traits<wchar_t>::state_type>;
+             using state_type = Base::state_type;
+             using result = Base::result;
+         
+             result do_in(state_type &state, const char *from, const char *from_end,
+                          const char *&from_next, wchar_t *to, wchar_t *to_limit,
+                          wchar_t *&to_next) const override
+             {
+                 // 我们不妨不进行Unicode的合法性校验了。
+                 std::size_t outSize = (to_limit - to) * sizeof(wchar_t),
+                             inSize = from_end - from;
+                 std::size_t copySize = std::min(inSize, outSize) / sizeof(wchar_t) *
+                                        sizeof(wchar_t); // 算一下完整的wchar_t有多大
+         
+                 std::memcpy(to, from, copySize);
+                 from_next = from + copySize, to_next = to + copySize / sizeof(wchar_t);
+                 return copySize == inSize ? partial : ok;
+             }
+         
+             result do_out(state_type &state, const wchar_t *from,
+                           const wchar_t *from_end, const wchar_t *&from_next, char *to,
+                           char *to_limit, char *&to_next) const override
+             {
+                 std::size_t outSize = to_limit - to,
+                             inSize = (from_end - from) * sizeof(wchar_t);
+                 std::size_t copySize =
+                     std::min(inSize, outSize) / sizeof(wchar_t) * sizeof(wchar_t);
+         
+                 std::memcpy(to, from, copySize);
+                 from_next = from + copySize / sizeof(wchar_t), to_next = to + copySize;
+                 return copySize == inSize ? partial : ok;
+             }
+         };
+         ```
+         
+         然后：
+         
+         ```c++
+         std::wofstream fout{ "test.txt" };
+         fout.imbue(std::locale{ fout.getloc(), new WcharFacet });
+         // Unicode要写一下BOM
+         if (std::endian::native == std::endian::little)
+    	    fout.write(0xFEFF);
+         else
+             fout.write(0xFFFE);
+         fout << L"眼底未名水，胸中黄河月";
+         ```
+         
+         他发现正常地进行地输出了，并且切换编码后得到的也是正确的文字。ta于是高兴地输出了一个自己的名字“小昊”：
+         
+         ```c++
+         fout << L"小昊";
+         ```
+    
+         他发现在Windows中，文件里的内容又不正确了，这是为什么？查阅“昊”字的UTF-16编码，思考原因。为了解决这个问题，应当如何修改代码（注：不是修改上述`codecvt`的代码）？
+         
+       + 小昊问：为什么`std::locale{"zh-CN"}`没有这个问题？查阅GBK的编码规则进行回答。
+
+
+11. 我们在课上没有讲`operator>>(std::basic_streambuf*)`的作用，只是提到它是Unformatted output。实际上，它的作用是将自己的`streambuf`内容输入到参数的`buf`中，直到：
+
+    + 自己eof了；
+    + 对参数的输出序列插入失败了；
+    + 抛出了异常。
+
+    请你利用这个函数，快速读取文件全部内容到内存中，得到对它的`string_view`。如果没有读到end of file，则抛出异常。
+
+    提示：你可以同时利用file stream和string stream。
+
+12. 对我们课上`stringstream`的例子，使用`spanstream`来进行改造，了解一些API的变化。
+
+    ```c++
+    std::string s0{ "1.234 567 " };
+    std::stringstream s{ s0 };
+    float a; int b;
+    s >> a >> b;
+    std::println("a = {}, b = {}", a, b);
+    s << b;
+    std::println("get pos = {}, put pos = {}", s.tellg() - std::streampos{0}, 
+                 s.tellp() - std::streampos{0});
+    std::println("original string = {},\nunderlying string = {}", s0, s.str());
+    ```
+
+    最后的输出又有何变化？
+
+    > 小明没有拷贝上述代码，自己一点点抄了上去，但是对`s0`漏抄了最后的空格，于是他得到了下述的输出：
+    >
+    > ```text
+    > a = 1.234, b = 567
+    > get pos = -1, put pos = 0
+    > original string = 1.234 567,
+    > underlying string = 1.234 567
+    > ```
+    >
+    > 他说：真奇怪，为什么underlying string没有改变呢？put的指针不是明明指在最前面吗？
+    >
+    > 请你回答这个问题。
