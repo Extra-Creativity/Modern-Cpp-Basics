@@ -298,3 +298,10 @@
     > 他说：真奇怪，为什么underlying string没有改变呢？put的指针不是明明指在最前面吗？
     >
     > 请你回答这个问题。
+
+### 附加题
+
+完成网络流的输入部分。思考以下几个问题：
+
+1. 我们中间发生了很多`streamsize`和`int`之间的转型，主要是`Recv/SendAsMuchAsPossible`和`pbump/gbump`。如果想解决，能够如何处理？
+2. 网络输入流的`sync`是否有意义？为什么？

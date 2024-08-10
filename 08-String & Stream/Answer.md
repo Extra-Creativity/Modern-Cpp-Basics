@@ -247,6 +247,41 @@
 
     小明的问题是最后`stringstream`的输入到达了结尾（因为输入数字会在非数字处才停止，而没有左后一个空格作为非数字，就到达了末尾），于是设置了`eofbit`，此时流不再`good`，需要`clear`才可以正常输出。
 
+### 附加题
+
+1. 对于`Send/Recv`，可以如下解决：
+
+   ```c++
+   while (true)
+   {
+       int bufferSize = std::min<std::streamsize>(size,
+                                                  std::numeric_limits<int>::max());
+       // 然后使用bufferSize
+   }
+   ```
+
+   小明说：我记得C++20开始signed integer overflow好像良定义了，我直接`static_cast<int>`不行吗？注意到事实上signed integer overflow是`mod 2^n`的结果，因此有可能`mod`后填入`int`直接变为负数了；就算是`unsigned int`也有问题，因为有可能很大的数`mod`之后变成0。
+
+   对于`gbump/pbump`，也可以类似地写一个循环。
+
+   > 小哲是这么写的：
+   >
+   > ```c++
+   > int bufferSize = std::min(size, std::numeric_limits<int>::max());
+   > ```
+   >
+   > 发现编译不过，一怒之下瞎写了一个：
+   >
+   > ```c++
+   > int bufferSize = std::min<int>(size, std::numeric_limits<int>::max());
+   > ```
+   >
+   > 这下编译过了，想想有没有什么问题？和我们上面写的有什么区别？
+
+2. 没有意义，因为`sync`的作用是从external device重新load内容，这样当external device的内容实际改变时，能够得到最新内容。然而，网络的内容发送或接受后就不能反悔了，没有所谓“最新”。
+
+   这只是针对我们当前的情况；小刘想实现一个基于FTP协议的流，那么情况完全不同了。虽然这仍然基于网络，但是external device变为了另一方的文件，文件自然可以反悔式修改，此时`sync`的同步就有意义了。
+
 ## Final
 
 第一题的思考题的答案：`.replace`的实现就是：如果新字串更长就向后移动原字串后面的部分，更短就向前移动，因此`.replace`的复杂度是$O(k)$的，$k$是剩余长度。在上述循环下，于是最差的复杂度会退化到$O(N^2)$，我们事实上做了很多不必要的字符串尾巴的移动。
