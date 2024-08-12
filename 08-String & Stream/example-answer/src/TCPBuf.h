@@ -69,9 +69,11 @@ public:
 
     void SetBuffer(T *s, std::streamsize n)
     {
+        auto oldBuffer = buffer_, needDelete = !userManaged_;
         if (s == nullptr)
         {
-            if (n == bufferSize_)
+            // 如果buffer size不变，且之前也是自动管理的，就不要再重新分配了
+            if (n == bufferSize_ && !userManaged_)
                 return;
             buffer_ = n == 0 ? nullptr : new T[n];
             bufferSize_ = n;
@@ -83,6 +85,8 @@ public:
             bufferSize_ = n;
             userManaged_ = true;
         }
+        if (needDelete)
+            delete[] oldBuffer;
     }
 };
 
