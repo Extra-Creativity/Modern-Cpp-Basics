@@ -23,19 +23,15 @@ void MatchTest()
         std::println("Fail");
     }
 
-#ifndef _MSC_VER
-    if (auto [whole2, a2, b2, c2, d2] = ctre::match<ctreRegex>(singleStr))
+    // Notice: structured binding in if clause is not regulated in the standard
+    // So the second whole2 is necessary. MSVC rejects it if it's not provided.
+    if (auto [whole2, a2, b2, c2, d2] = ctre::match<ctreRegex>(singleStr);
+        whole2)
     {
-        std::println("ctre Pass: {} {} {} {} {}", whole2, a2, b2, c2, d2);
+        std::println("ctre Pass: {} {} {} {} {}", whole2.to_view(),
+                     a2.to_number(), b2.to_number(), c2.to_number(),
+                     d2.to_number());
     }
-#else
-    if (auto m = ctre::match<ctreRegex>(singleStr))
-    {
-        std::println("ctre Pass: {} {} {} {} {}", m.get<0>().to_view(),
-                     m.get<1>().to_number(), m.get<2>().to_number(),
-                     m.get<3>().to_number(), m.get<4>().to_number());
-    }
-#endif
     else
     {
         std::println("Fail");
