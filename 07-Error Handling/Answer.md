@@ -29,7 +29,7 @@
 
    显然迂回的策略十分丑陋；此外，我们说过`referece_wrapper`本质上就是有一个`T*`，`optional`又给它搞了一个`bool`，明明空指针就能表示这种空状态，白白浪费了空间。
 
-   **总结：不要把`std::optional`作为函数参数**。
+   **总结：对于函数参数，如果非空参数本来是要传递引用`T&`，则（在相关提案通过前）传递可空参数不要使用`std::optional<T&>`，而是使用`T*`**。
 
    在P2988里，`std::optional<T&>`与指针是比较类似的：
 
@@ -58,7 +58,7 @@
 
    ```c++
    std::optional<int> Func() { return 1; }
-   std::optional<int&> dangling{ Func(); } // 编译通过，但是后续访问dangling是错误的。
+   std::optional<int&> dangling{ return Func(); } // 编译通过，但是后续访问dangling是错误的。
    // 等价于：int* dangling = &(Func().value());
    ```
 
