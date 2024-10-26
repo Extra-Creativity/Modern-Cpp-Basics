@@ -70,3 +70,5 @@
 
    会输出多少次`expensive delete`？如果我们将移动赋值函数改为逐成员交换，那么会输出多少次`expensive delete`？如果你想反驳这个理由，你应该在增加什么来达到相同的效果？
 
+4. 给Error Handling作业中`List`增加移动构造函数和移动赋值函数；再使用copy-and-swap idiom改写。
+

@@ -45,3 +45,39 @@
    ```
 
    就可以消除这个调用。在gcc -O3尝试一下，可以发现这种改进后，`erase`生成的汇编和逐成员交换是一致的。因此，如果析构对于空对象也是十分昂贵的，我们需要考虑加上空状态的判断来手动跳过这个部分。
+
+4. 如下：
+
+   ```c++
+   List(List&& another) noexcept
+   {
+       sentinel_.prev = std::exchange(another.sentinel_.prev, &another.sentinel_);
+       sentinel_.next = std::exchange(another.sentinel_.next, &another.sentinel_);
+   }
+   
+   List& operator=(List&& another) noexcept
+   {
+       if (this == &another)
+           return *this;
+       // 和答案中~ListBase()一样进行资源释放，这里省略了。
+       ReleaseNodes();
+       
+       sentinel_.prev = std::exchange(another.sentinel_.prev, &another.sentinel_);
+       sentinel_.next = std::exchange(another.sentinel_.next, &another.sentinel_);
+       return *this;
+   }
+   ```
+
+   如果使用copy-and-swap idiom：
+
+   ```c++
+   List& operator=(List&& another) noexcept
+   {
+       if (this == &another)
+           return *this;
+   
+       List temp{ std::move(another) };
+       swap(temp);
+       return *this;
+   }
+   ```

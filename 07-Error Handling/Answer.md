@@ -146,7 +146,7 @@
        auto end() const { return ConstIterator{ &this->sentinel_ }; }
        
        List(const List& another) : List{ another.begin(), another.end() } {}
-       void swap(List &another)
+       void swap(List &another) noexcept
        {
            std::swap(GetSentinel_().prev, GetSentinel_().prev);
            std::swap(GetSentinel_().next, GetSentinel_().next);
