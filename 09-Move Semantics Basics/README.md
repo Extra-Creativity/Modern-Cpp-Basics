@@ -23,9 +23,9 @@
    }
    ```
 
-   在C++中我们可以通过引用来增加一些可读性，也可以通过模板来定义一般的交换代码。请写出模板`swap`，注意考虑能否在其中使用移动语义。
+   在C++中我们可以通过引用来增加一些可读性，也可以通过模板来定义一般的交换代码。请实现模板`swap`，注意考虑能否在其中使用移动语义。
 
-3. 有一些人提出，如果移动赋值实现为逐成员交换可以在一些情况下里高效率，例如我们擦除一个`vector`的第一个元素，那么事实上内部发生的是：
+3. 有一些人提出，如果移动赋值实现为逐成员交换可以在一些情况下里有较高的效率，例如我们擦除一个`vector`的第一个元素，那么事实上内部发生的是：
 
    ```c++
    for (std::size_t i = 1; i < size; i++)
@@ -40,7 +40,7 @@
    class Foo
    {
        char *ptr = nullptr;
-       void ExpensiveDelete()
+       void ExpensiveDelete() noexcept
        {
            std::println("expensive delete"); // 我们假设这里代表了比较昂贵的操作
            delete ptr;
@@ -49,7 +49,7 @@
    public:
        ~Foo(){ ExpensiveDelete(); }
    
-       Foo& operator=(Foo&& another)
+       Foo& operator=(Foo&& another) noexcept
        {
            if (this == &another)
                return *this;
@@ -68,7 +68,7 @@
    vf.erase(vf.begin());
    ```
 
-   会输出多少次`expensive delete`？如果我们将移动赋值函数改为逐成员交换，那么会输出多少次`expensive delete`？如果你想反驳这个理由，你应该在增加什么来达到相同的效果？
+   会输出多少次`expensive delete`？如果我们将移动赋值函数改为逐成员交换，那么会输出多少次`expensive delete`？如果你想反驳这个理由，你应该在原来的代码基础上增加什么来达到相同的效果？
 
 4. 给Error Handling作业中`List`增加移动构造函数和移动赋值函数；再使用copy-and-swap idiom改写。
 
