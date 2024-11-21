@@ -30,7 +30,8 @@
        // 后面我们说UB还是OK都是指继续使用结果进行其他操作，比如访问元素。
        std::vector<int> a;
        auto b1 = Func0(a); // ub
-       auto c1 = Func1(a); // ub
+       auto c1 = Func1(a); // ok, because auto deduces std::vector
+       // which copies and makes a new variable.
        auto d1 = Func2(a); // ok
        auto e1 = Func3(a); // ok
    
