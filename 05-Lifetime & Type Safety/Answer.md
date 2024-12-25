@@ -15,7 +15,7 @@
    
    // UB, vec是临时变量，它的data()在离开作用域后直接悬垂
    const int *Func0(std::vector<int> vec) { return vec.data(); }
-   // UB, vec是临时变量，悬垂引用
+   // UB, vec是临时变量，函数返回后析构
    const std::vector<int> &Func1(std::vector<int> vec) { return vec; }
    
    // 有可能UB，如果vec是临时变量，那么本语句过后它就会析构，悬垂。
@@ -30,14 +30,13 @@
        // 后面我们说UB还是OK都是指继续使用结果进行其他操作，比如访问元素。
        std::vector<int> a;
        auto b1 = Func0(a); // ub
-       auto c1 = Func1(a); // ok, because auto deduces std::vector
-       // which copies and makes a new variable.
+       auto c1 = Func1(a); // ub; 注意在构造c1之前函数内的变量已经析构，因此这个构造本身访问了析构的变量，
+       // 就算c1本身不是引用也仍然是UB
        auto d1 = Func2(a); // ok
        auto e1 = Func3(a); // ok
    
        auto b2 = Func0({1, 2, 3}); // ub
-       auto c2 = Func1({1, 2, 3}); // ok, because auto deduces std::vector
-       // which copies and makes a new variable.
+       auto c2 = Func1({1, 2, 3}); // ub
        auto d2 = Func2({1, 2, 3}); // ub
        auto e2 = Func3({1, 2, 3}); // ok
    
