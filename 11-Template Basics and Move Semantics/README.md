@@ -50,7 +50,7 @@
    ```c++
    constexpr int Test2(const Base& obj)
    {
-       if (dynamic_cast<const Derived*>(obj) == nullptr) {
+       if (dynamic_cast<const Derived*>(&obj) == nullptr) {
            return 3;
        }
        return 4;
@@ -67,7 +67,7 @@
 
 3. 堆内存的分配：new expression被视作不可编译期求值的，但C++20进行了一定的放松；简单来说，new出来的变量必须在相同的编译期context进行delete（常称为"transient allocation"）。相应地，C++20也进行了如下改进：
 
-   + 使`vector`和`string`的构造函数及成员函数变为`constexpr`的；
+   + 使`vector`和`string`的构造函数及成员函数变为`constexpr`的（C++23又加入了`unique_ptr`）；
    + 允许析构函数是`constexpr`的（之前不能手动标注，只有trivial destructor默认`constexpr`）。
    + 使`<algorithm>`、`<numeric>`和`<utility>`中一大批函数都变为`constexpr`。
 
@@ -81,10 +81,10 @@
    constexpr int size = Test(); // Okay
    
    constexpr int Test2() {
-       constexpr std::vector<int> v{ 1,2,3 };
+       constexpr std::vector<int> v{ 1,2,3 }; // Error
        return v.size();
    }
-   constexpr int size = Test(); // Error
+   constexpr int size = Test2();
    ```
 
    可以这么理解：每遇到一个必须要求编译期求值的位置（例如`constexpr`变量、数组大小等），就进入了新的context，此时内部所有语句都必须满足编译期可求值的要求。
@@ -183,6 +183,8 @@
        int l = Inc(n); // ok，因为没有开启一个新的context，修改操作不在context外。
    }
    ```
+
+除了这些之外，还有一些比较小的改进，比如C++23引入了constexpr bitset，C++26引入了constexpr structured binding以及constexpr placement new（限制分配位置只能是变量地址）。
 
 ### Part 1
 
