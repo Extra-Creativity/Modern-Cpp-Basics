@@ -90,7 +90,7 @@
    可以这么理解：每遇到一个必须要求编译期求值的位置（例如`constexpr`变量、数组大小等），就进入了新的context，此时内部所有语句都必须满足编译期可求值的要求。
 
    + 对于`size = Test()`进入的环境，由于`v`析构时会delete，所以满足了前面说的new的放松条件；
-   + 对于`size = Test2()`，注意到`Test2`中`v`是一个constexpr变量，因此开启了新的context，需要探查其内部本身是否满足条件。而构造函数内部不会进行delete，因此不再满足放松条件，
+   + 对于`size = Test2()`，注意到`Test2`中`v`是一个constexpr变量，因此开启了新的context，需要探查其内部本身是否满足条件。而构造函数内部不会进行delete，因此不再满足放松条件。
 
    再举一个例子：
 
@@ -152,20 +152,20 @@
 
    ```c++
    constexpr int just_error() { 
-   	throw my_exception{};
+       throw my_exception{};
        return 1;
    }
    
    constexpr void foo() {
-   	try {
-   		auto v = just_error();
-   	} catch (my_exception) { }
+       try {
+           auto v = just_error();
+       } catch (my_exception) { }
    }
    
    constexpr void foo2() {
        try {
-   		constexpr auto v = just_error();
-   	} catch (my_exception) { }
+           constexpr auto v = just_error();
+       } catch (my_exception) { }
    }
    ```
 
@@ -173,7 +173,7 @@
 
 6. `reinterpret_cast`：不允许。
 
-7. 对`context`外变量的修改：不允许。例如：
+7. 对context外变量的修改：不允许。例如：
 
    ```c++
    constexpr int Inc(int& n) { return ++n; }
