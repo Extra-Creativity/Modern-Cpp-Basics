@@ -227,9 +227,35 @@
 
 2. 写一个`Insert`函数，接受参数`x`和`val`，如果`x`可以调用`push_back`则调用并插入`val`，否则调用`insert`。你能想到如何使用constexpr if来完成吗？
 
-3. 写一个函数，要求其参数可以转换为`int`。阅读`std::convertible_to`这个concept，用缩写的方式（即无requires clause）给出答案。
+3. 写一个函数，要求其参数可以转换为`int`。阅读`std::convertible_to`这个concept的文档，用缩写的方式（即无requires clause）给出答案。
 
 4. 实现`std::move_if_noexcept<T>`，当`<T>`的移动构造不会抛异常时，或者无拷贝构造函数时，进行`std::move`；否则返回`const&`。这个函数通常用来保证异常安全性。
+
+5. 补充一个知识，模板类成员函数可以对其模板参数施加约束，**当约束不满足时不会导致编译错误，只会去掉这个成员函数**。判断以下代码中哪些语句不能够编译通过：
+
+   ```c++
+   template<std::integral T>
+   class A
+   {
+   public:
+       bool Test()
+           requires std::same_as<T, int>
+       {
+           return true;
+       }
+   };
+   
+   int main()
+   {
+       A<int> a;
+       a.Test();
+   
+       A<long> b;
+       b.Test();
+   
+       A<float> c;
+   }
+   ```
 
 ## Move Semantics
 
@@ -252,6 +278,8 @@
    从而当`self`为左值时，会以左值的方式forward `self.value_`（也就是什么都不干）；当`self`为右值时，会以右值的方式forward `self.value_`（也就是进行移动）。
 
    请实现`forward_like`；特别地，这个函数在模板参数为`const`时，这种`const`也会传递给函数参数。例如上式中，若`decltype(self)`为`const&`，则`self.value_`也会转为`const Value&`。在成员访问中这是多此一举（因为const变量的成员只能是const），但是在其他情况未必。
+
+   > 你可以用`std::is_const_v<std::remove_reference_t<T>>`来判断一个引用是不是`const&`。**特别注意，`std::is_const_v<T>`对`T=const&`推断出false，必须先把引用去掉再判断。**
 
 2. 写一个函数`call`，它接受一个可调用对象`func`和一个参数`param`，用一行代码原封不动返回`func`传入`param`的调用结果并返回（返回类型与`call`的返回类型相同），并回答以下问题：
 

@@ -200,16 +200,57 @@
    ```
 
    在C++17之前，你也可以使用`std::add_const_t<T>`的type traits。
+   
+5. `b.Test()`和`A<float> c`不能编译通过，其他可以。
 
 ## Move Semantics
 
-1. 
+1. 先不考虑`const`，我们可以很容易写出来代码：
 
+   ```c++
+   template<typename T, typename U>
+   auto&& forward_like(U&& arg)
+   {
+       if constexpr (std::is_lvalue_reference_v<T>) {
+           return arg;
+       }
+       else {
+           return std::move(arg);
+       }
+   }
+   ```
+   
+   然后每个分支加上`const`的判断就可以了：
+   
+   ```c++
+   template<typename T, typename U>
+   auto&& forward_like(U&& arg)
+   {
+       static constexpr bool is_const = std::is_const_v<std::remove_reference_t<T>>;
+       if constexpr (std::is_lvalue_reference_v<T>) {
+           if constexpr (is_const) {
+               return std::as_const(arg);
+           }
+           else {
+               return arg;
+           }
+       }
+       else {
+           if constexpr (is_const) {
+               return std::move(std::as_const(arg));
+           }
+           else {
+               return std::move(arg);   
+           }
+       }
+   }
+   ```
+   
 1. 代码如下：
 
    ```c++
    decltype(auto) call(auto&& func, auto&& param)
-   requires std::invocable<decltype(func), decltype(param)>
+   requires std::invocable<decltype(func), decltype(param)> // 当然不加这句也行。
    {
        return func(std::forward<decltype(param)>(param));
    }
@@ -269,7 +310,7 @@
      }
      ```
      
-     注意，虽然直接`return result;`推断的返回类型是正确的，但是当`result`是右值引用时，由于`result`是左值，因此不能直接绑定，因此需要这个转型。但是，上述写法还有一个问题：对于值类型，`return result;`是可以NRVO的，但`static_cast<T>`由于不是name，因此不能进行NRVO，甚至不能进行implicit cast，于是**多了一次拷贝**。解决方案就是使用`if constexpr`：
+     注意，虽然直接`return result;`推断的返回类型是正确的，但是当`result`是右值引用时，由于`result`是左值，不能直接绑定右值引用，因此需要这个转型。但是，上述写法还有一个问题：对于值类型，`return result;`是可以NRVO的，但`static_cast<T>`由于不是name，因此不能进行NRVO，甚至不能进行implicit cast，于是**多了一次拷贝**。解决方案就是使用`if constexpr`：
      
      ```c++
      decltype(auto) call(auto&& func, auto&& param)
