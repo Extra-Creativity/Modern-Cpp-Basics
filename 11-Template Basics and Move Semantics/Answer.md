@@ -199,7 +199,7 @@
    return std::as_const(arg);
    ```
 
-   在之前，你也可以使用`std::add_const_t<T>`的type traits。
+   在C++17之前，你也可以使用`std::add_const_t<T>`的type traits。
 
 ## Move Semantics
 
