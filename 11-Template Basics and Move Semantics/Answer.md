@@ -96,9 +96,114 @@
    inline constexpr unsigned int Foo_v = Foo<N>::value;
    ```
 
+
+## Part 2
+
+1. 不合法，虽然逻辑上讲二者是一样的（德摩根定律），但是`!A`和`!B`会被看作Unknown1和Unknown2，而`!(C || D)`则是Unknown3，前者的`&&`并不和后者构成subsume关系。
+
+2. 当然可以很容易地通过特化来完成：
+
+   ```c++
+   template<typename T, typename U>
+   void Insert(T& cont, const U& val)
+   {
+       cont.insert(val);
+   }
    
+   template<typename T, typename U>
+   requires requires(T cont, U val) { cont.push_back(val); }
+   void Insert(T& cont, const U& val)
+   {
+       cont.push_back(val);
+   }
+   ```
+
+   > 当然，你也可以把`U`写成`std::ranges::iter_value_t<>`，少写一个模板参数：
+   >
+   > ```c++
+   > template<typename T>
+   > requires requires(T cont, std::ranges::range_value_t<T> val) 
+   >     { cont.push_back(val); }
+   > void Insert(T& cont, const std::ranges::range_value_t<T>& val)
+   > {
+   >     cont.push_back(val);
+   > }
+   > ```
+   >
+   > 当然写两遍参数感觉非常蠢（，所以补充一点：requires clause是可以写在函数头后面的。这样就可以写成下面的形式：
+   >
+   > ```c++
+   > template<typename T>
+   > void Insert(T& cont, const std::ranges::range_value_t<T>& val)
+   > requires requires { cont.push_back(val); }
+   > {
+   >     cont.push_back(val);
+   > }
+   > ```
+
+   如果使用constexpr if，可以利用requires expression可以转化为bool的性质：
+
+   ```c++
+   template<typename T, typename U>
+   void Insert(T& cont, const U& val)
+   {
+       if constexpr (requires { cont.push_back(val); }) {
+           cont.push_back(val);
+       }
+       else {
+           cont.insert(val);
+       }
+   }
+   ```
+
+   当然，你也可以利用concept本身可以转化为bool的性质：
+
+   ```c++
+   template<typename T, typename U>
+   concept SupportPushBack = requires(T cont, U val) { cont.push_back(val); };
+   
+   template<typename T, typename U>
+   void Insert(T& cont, const U& val)
+   {
+       if constexpr (SupportPushBack<T, U>) {
+           cont.push_back(val);
+       }
+       else {
+           cont.insert(val);
+       }
+   }
+   ```
+
+3. ```c++
+   void Func(std::convertible_to<int> auto a) {}
+   ```
+
+4. ```c++
+   template<typename T>
+   decltype(auto) MoveIfNoexcept(T& arg)
+   {
+       if constexpr (std::is_nothrow_move_constructible_v<T> || 
+                     !std::is_copy_constructible_v<T>)
+       {
+           return std::move(arg);
+       }
+       else {
+           return static_cast<const T&>(arg);
+       }
+   }
+   ```
+
+   当然，`else`里也可以使用C++17的`std::as_const`，它接受`T&`，返回`const T&`：
+
+   ```c++
+   return std::as_const(arg);
+   ```
+
+   在之前，你也可以使用`std::add_const_t<T>`的type traits。
 
 ## Move Semantics
+
+1. 
 
 1. 代码如下：
 

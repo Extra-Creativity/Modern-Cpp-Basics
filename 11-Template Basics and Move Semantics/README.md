@@ -206,14 +206,54 @@
 
 ### Part 2
 
+1. 判断以下代码是否会导致编译错误（`integral`和`same_as`都是`<concepts>`中定义的标准库concept）：
 
+   ```c++
+   #include <concepts>
+   
+   template<typename T>
+   requires (!std::integral<T>) && (!std::same_as<T, float>)
+   void Func(T x) {}
+   
+   template<typename T>
+   requires !(std::integral<T> || std::same_as<T, float>)
+   void Func(T x) {}
+   
+   int main()
+   {
+       Func(1.0);
+   }
+   ```
 
-### Part 3
+2. 写一个`Insert`函数，接受参数`x`和`val`，如果`x`可以调用`push_back`则调用并插入`val`，否则调用`insert`。你能想到如何使用constexpr if来完成吗？
 
-1. concept是否德摩根定律来一道题，就是`!(a&&b)`和`!a || !b`不等价，因为concept subsumption只考虑`&&`和`||`（严格说还有`()`，即`(Concept)`和`Concept`等价），`!`只是产生了一个新的unknown name。这个PPT上也写了。
+3. 写一个函数，要求其参数可以转换为`int`。阅读`std::convertible_to`这个concept，用缩写的方式（即无requires clause）给出答案。
+
+4. 实现`std::move_if_noexcept<T>`，当`<T>`的移动构造不会抛异常时，或者无拷贝构造函数时，进行`std::move`；否则返回`const&`。这个函数通常用来保证异常安全性。
 
 ## Move Semantics
 
-1. 写一个函数`call`，它接受一个可调用对象`func`和一个参数`param`，用一行代码原封不动返回`func`传入`param`的调用结果并返回（返回类型与`call`的返回类型相同），并回答以下问题：
+1. 在C++23引入了新函数`forward_like`，它的作用是“像`forward<decltype(x)>(x)`一样`forward(y)`”。例如我们举过的`optional`的`value`的例子：
+
+   ```c++
+   decltype(auto) value(this auto&& self) {
+       return std::forward<decltype(self)>(self).value_;
+   }
+   ```
+
+   也可以利用`forward_like`写为：
+
+   ```c++
+   decltype(auto) value(this auto&& self) {
+       return std::forward_like<decltype(self)>(self.value_);
+   }
+   ```
+
+   从而当`self`为左值时，会以左值的方式forward `self.value_`（也就是什么都不干）；当`self`为右值时，会以右值的方式forward `self.value_`（也就是进行移动）。
+
+   请实现`forward_like`；特别地，这个函数在模板参数为`const`时，这种`const`也会传递给函数参数。例如上式中，若`decltype(self)`为`const&`，则`self.value_`也会转为`const Value&`。在成员访问中这是多此一举（因为const变量的成员只能是const），但是在其他情况未必。
+
+2. 写一个函数`call`，它接受一个可调用对象`func`和一个参数`param`，用一行代码原封不动返回`func`传入`param`的调用结果并返回（返回类型与`call`的返回类型相同），并回答以下问题：
+
    + 这个调用和直接从caller调用`func`的效果完全一致吗？是否会造成额外开销？（Hint: prvalue）
    + 如果需要对调用结果进行一定的操作再返回，即需要将调用结果存入一个变量，那么`return`应当怎么写？分别讨论C++23之前/之后的情况。
