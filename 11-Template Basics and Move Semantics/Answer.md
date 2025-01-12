@@ -201,7 +201,7 @@
 
    在C++17之前，你也可以使用`std::add_const_t<T>`的type traits。
    
-5. `b.Test()`和`A<float> c`不能编译通过，其他可以。
+5. `b.Test()`和`A<float> c`不能编译通过，其他可以。尽管`long`不满足`Test`的约束，但是仍然可以实例化`A<long>`，只是不能调用`Test`方法。
 
 ## Move Semantics
 
