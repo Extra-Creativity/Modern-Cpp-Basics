@@ -186,6 +186,20 @@
 
 除了这些之外，还有一些比较小的改进，比如C++23引入了constexpr bitset，C++26引入了constexpr structured binding以及constexpr placement new（限制分配位置只能是变量地址）。
 
+> 特别地，这种“语句可以出现在编译期进行求值”，和“值本身是编译期求得”的差别，导致了如下的代码是错误的：
+>
+> ```c++
+> template<std::size_t N>
+> constexpr void Test()
+> {
+>     for (int i = 0; i < N; i++) {
+>         std::array<int, i> arr; // WRONG
+>     }
+> }
+> ```
+>
+> `i`不是`constexpr`变量，不能出现在模板参数的位置。
+
 ### Part 1
 
 1. 小明写下如下程序：
