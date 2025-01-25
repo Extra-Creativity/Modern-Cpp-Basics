@@ -169,7 +169,20 @@
 
 ### Part 4
 
-1. 阅读`std::function`的文档，实现`std::function`；忽略allocator相关的部分，也先不考虑SBO。
-1. 实现`std::function`的SBO。
+1. 阅读`std::function`的文档，实现`std::function`；忽略allocator相关的部分（事实上C++17也把`std::function`的allocator支持移除了，见[P0302: Removing Allocator Support in std::function](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0302r1.html)），也不考虑SBO。
+
+1. 选做题：实现`std::function`的SBO。
+
+   > 注意，buffer如何在两个function之间传递是比较麻烦的，尤其是考虑到具有虚函数的类不是trivially copyable的，不能进行逐字节的拷贝（也就不能通过buffer的swap来完成）。现有的实现有两种方式：
+   >
+   > + MS-STL：对proxy实现`Move`这个虚函数，对buffer的转移实际上是通过移动构造新的object。优点是实现起来相对简单，同时不要求SBO的优化只发生在trivially copyable的object上。
+   > + libstdc++：手动实现虚表，存储函数指针，和我们Lecture 5的作业最后一题比较相似。同时要求接受的functor是trivially copyable的。优点是调用的虚函数更少，在trivially copyable的情况下效率更高。
+   >
+   > 而libc++则两种都实现了，根据ABI选项来确定实际使用哪种策略。当然有一些实际区别，例如：
+   >
+   > + 对于MS-STL策略，没有移动而是拷贝来进行swap；等等。
+   > + 对于libstdc++策略，放松了trivially copyable的要求，要求trivially destructible等（因为libstdc++事实上也没有完全利用trivially copyable）；等等。
+   >
+   > 但是总体思路大差不差。你可以选择一种进行实现。
 
 > 如果你想，也可以实现一下它的deduction guide。

@@ -178,6 +178,8 @@
 
 ### Part 4
 
-1. move_only_function怎么加上const的，可以写一下。
-2. 主要是加了成员，还给`Clone`加了参数。
-
+1. 见`Answer-code/Function.cpp`，思路难度不大，主要是一些细枝末节可能有小问题。
+2. 见`Answer-code/Function-SBO.cpp`，实现的思路是MS-STL使用的。特别地：
+   + `Move`虽然标注了noexcept，但是并没有检查移动构造函数是否真的`noexcept`，保险起见可以检查一下`nothrow_copy_constructible || nothrow_move_constructible`，然后`move_if_noexcept`来实现`Move`。
+   + 你也可以加上一个flag保存是不是trivially copyable，如果是就直接memcpy过去，减少虚函数调用（当然也增加了空间大小）。
+3. move_only_function怎么加上const的，可以写一下。
