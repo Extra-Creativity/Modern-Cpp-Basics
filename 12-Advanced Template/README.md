@@ -100,6 +100,18 @@
    >             std::forward_as_tuple(Args...)); 
    > ```
 
+1. 选做题：实现`std::invoke`，注意对不同类型的可调用对象的重载或特化（可以利用`std::is_member_pointer`等member pointer的traits，见[std::is_member_pointer](https://en.cppreference.com/w/cpp/types/is_member_pointer)）。具体要求参见[std::invoke](https://en.cppreference.com/w/cpp/utility/functional/invoke)及[Function objects](https://en.cppreference.com/w/cpp/utility/functional)。
+
+   > 注：可以使用如下方式得到member pointer的两个组成：
+   >
+   > ```c++
+   > template<typename PointedType, typename ClassType>
+   > decltype(auto) Call(PointedType ClassType::* param);
+   > 
+   > Call(&A::Test); // ClassType == A;
+   > // 当Test为函数时，PointedType为相应的函数类型；否则为就是member object pointer.
+   > ```
+
 ### Part 3
 
 前三题请全部使用SFINAE而非concept完成。
@@ -166,6 +178,8 @@
    ```
 
    请利用类似的方法实现`apply`。
+
+1. 选做题：实现`PushBackGuard(v1, e1, v2, e2, ...)`，对`vi`推入元素`ei`，同时要求强异常安全性，即一旦有一个推入失败，该函数已推入的元素需要pop出去，再把异常原封不动地抛出去。
 
 ### Part 4
 

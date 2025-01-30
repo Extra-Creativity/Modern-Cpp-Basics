@@ -72,6 +72,29 @@
    }
    ```
 
+5. 见`Answer-code/Invoke.cpp`。特别地，可以循规蹈矩地按照规定一条一条来实现，但我们这里对两种情况进行了合并（即消除了`reference_wrapper`的`if constexpr`，也不用自己实现判断实例的traits）：
+
+   ```c++
+   using ObjectType = std::remove_reference_t<
+       std::unwrap_reference_t<std::remove_cvref_t<T>>>;
+   ObjectType &realObj = obj;
+   static constexpr bool matchCase =
+       std::is_same_v<ClassType, ObjectType> ||
+       std::is_base_of_v<ClassType, ObjectType>;
+   ```
+
+   解释一下：
+
+   + 第一层`std::remove_cvref_t`是标准要求的；
+   + 第二层`std::unwrap_reference_t`对`T = reference_wrapper<U>`返回`U&`，其他返回`T&`。这个是C++20的traits。
+   + 第三层把这个`&`去掉，得到无reference_wrapper的类型`ObjectType`。
+
+   随后利用`reference_wrapper<T>`能够自动转型为`T&`的特性，下面这一句就统一了两个case：
+
+   ```c++
+   ObjectType &realObj = obj;
+   ```
+
 ### Part 3
 
 1. ```c++
@@ -175,6 +198,14 @@
       std::tuple a{ 1, 2.0 }; // <int, dounle>
       std::apply(a, [](int b, double c) { std::println("{} {}", b, c); });
       ```
+
+5. 见`Answer-code/PushBackGuard.cpp`，还是很有难度的。特别地，从C++26开始才允许使用如下形式的`static_assert`：
+
+   ```c++
+   static_assert(condition, msg); // msg.data()返回const char*，msg.size()返回大小。
+   ```
+
+   之前都必须是裸字符串，没法进行复杂操作，所以用户不能知道具体哪个元素出错了。
 
 ### Part 4
 
