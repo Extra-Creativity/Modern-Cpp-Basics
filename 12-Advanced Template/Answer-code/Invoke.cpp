@@ -52,6 +52,12 @@ struct InvokeHelper<T0>
                 return ((*realObj).*func);
             }
         }
+        else
+        {
+            static_assert(
+                false,
+                "Pointer to data member is not callable with arguments.");
+        }
     }
 };
 

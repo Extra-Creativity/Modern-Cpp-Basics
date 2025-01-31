@@ -185,6 +185,17 @@
 
 1. 阅读`std::function`的文档，实现`std::function`；忽略allocator相关的部分（事实上C++17也把`std::function`的allocator支持移除了，见[P0302: Removing Allocator Support in std::function](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0302r1.html)），也不考虑SBO。
 
+1. 从实现的角度，思考一下C++26的`std::function_ref`和`std::function`在成员和构造函数上的区别。
+
+1. 我们之前说过，`std::move_only_function`可以解决`std::function`的const问题，即`const std::function`不能只调用底层对象的`const`方法，而却仍然可以调用非const方法。为了解决这个问题，可以引入一个非常古老的“特性”（Abominable Function Type，“令人憎恶的函数类型”），即：
+
+   ```c++
+   using F1 = void();
+   using F2 = void() const &&;
+   ```
+
+   `F1`就是一个普通的函数类型，而`F2`加了一堆的后缀，但我们知道这些后缀本质上是修饰成员函数的。因此，`F2`并不能正常地使用（例如不能定义它的指针或者引用类型），但是`F1`和`F2`的差异却给模板特化带来了可能。据此，猜测`std::move_only_function`如何解决const问题。
+
 1. 选做题：实现`std::function`的SBO。
 
    > 注意，buffer如何在两个function之间传递是比较麻烦的，尤其是考虑到具有虚函数的类不是trivially copyable的，不能进行逐字节的拷贝（也就不能通过buffer的swap来完成）。现有的实现有两种方式：

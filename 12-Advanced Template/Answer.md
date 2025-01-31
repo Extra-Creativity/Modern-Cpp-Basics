@@ -210,7 +210,52 @@
 ### Part 4
 
 1. 见`Answer-code/Function.cpp`，思路难度不大，主要是一些细枝末节可能有小问题。
-2. 见`Answer-code/Function-SBO.cpp`，实现的思路是MS-STL使用的。特别地：
+
+2. 本质上变成了存引用参数的指针而不是存对象本身，当然这就对生命周期有要求。此外由于`function_ref`只存在`operator()`，因此它并没有用虚表，直接把函数指针塞到对象里，这个和我们Lecture 5的作业是一样的。
+
+3. 本质上是特化了`move_only_function<ReturnType(Args...) const>`等情况，于是：
+
+   + 对于非const的特化，能接受任意对象`Obj`（不论其`operator()`是否为`const`）；从而：
+     + 如果是`const std::move_only_function`，则只能调用`Obj::operator() const`；
+     + 如果是普通的`std::move_only_function`，则可以任意调用`operator()`，不论方法是否后缀`const`。
+   + 对于const的特化，只能接受`operator() const`，否则编译报错。调用时就是调用这个`operator()`。
+
+   例如：
+
+   ```c++
+   template<typename ReturnType, typename... Args>
+   class MoveOnlyFunction<ReturnType(Args...) const>
+   {
+   public:
+       template<typename F>
+       requires std::invocable<const std::decay_t<F>, Args...> // 只能const可调用才能构造
+       MoveOnlyFunction(F&&) { }
+       
+       decltype(auto) operator(Args... args)() const
+       {
+           return GetImplPtr_()->Call(std::forward<Args>(args)...);
+       }
+   };
+   
+   template<typename ReturnType, typename... Args>
+   class MoveOnlyFunction<ReturnType(Args...)>
+   {
+   public:
+       template<typename F>
+       MoveOnlyFunction(F&&) { }
+       
+       // 要求proxy提供const和non-const两个Call；这里要forward_like是因为我们function里
+       // 实现的GetImplPtr_不返回const Proxy*，而是Proxy*。
+       decltype(auto) operator(this auto&& self, Args... args)()
+       {
+           return std::forward_like<decltype(self)>
+               (*GetImplPtr_()).Call(std::forward<Args>(args)...);
+       }
+   };
+   ```
+
+   当然实际上除了`const`外，还可以增加noexcept和reference qualifier的限制，写起来这么多特化还是挺麻烦的。
+
+4. 见`Answer-code/Function-SBO.cpp`，实现的思路是MS-STL使用的。特别地：
    + `Move`虽然标注了noexcept，但是并没有检查移动构造函数是否真的`noexcept`，保险起见可以检查一下`nothrow_copy_constructible || nothrow_move_constructible`，然后`move_if_noexcept`来实现`Move`。
    + 你也可以加上一个flag保存是不是trivially copyable，如果是就直接memcpy过去，减少虚函数调用（当然也增加了空间大小）。
-3. move_only_function怎么加上const的，可以写一下。
