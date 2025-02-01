@@ -18,8 +18,15 @@ template<typename... T1>
 class A : public T1...
 {
 public:
-    A(T1 &&...args) : T1{ std::forward<T1>(args) }... {}
+    // 注意不能用T1&&，因为不是universal reference.
+    template<typename... T2>
+    A(T2 &&...args) : T1{ std::forward<T2>(args) }...
+    {
+    }
 };
+
+template<typename... T2>
+A(T2...) -> A<T2...>;
 
 class B
 {
