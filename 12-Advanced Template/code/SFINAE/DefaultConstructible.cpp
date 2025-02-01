@@ -5,12 +5,13 @@ struct IsDefaultConstructible
 {
 private:
     template<typename U, typename = std::void_t<decltype(U())>>
-    char test(){};
+    static char test(void *);
     template<typename>
-    long test(...);
+    static long test(...);
 
 public:
-    static constexpr bool value = std::is_same_v<decltype(test<T>()), char>;
+    static constexpr bool value =
+        std::is_same_v<decltype(test<T>(nullptr)), char>;
 };
 
 template<typename, typename = void>

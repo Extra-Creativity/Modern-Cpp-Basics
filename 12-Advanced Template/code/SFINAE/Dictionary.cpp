@@ -69,7 +69,10 @@ class Integer
 public:
     Integer(int n) : num_{ n } {}
     auto GetNum() const noexcept { return num_; }
-    bool operator==() = default;
+    // 不定义operator<=>，只允许进行相等的比较。
+    bool operator==(const Integer &) const = default;
+    // C++23也可以用bool operator==(this Integer, Integer) = default;
+    // 来进行值传递，总之要保持两个参数的类型一样。
 };
 
 template<>
