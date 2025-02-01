@@ -32,7 +32,7 @@ void CheckedPushBackGuard(std::tuple<Ts...> args,
         // Message is possible only after C++26.
         static_assert(Detail::IsVector<VectorType>::value);
         static_assert(
-            std::is_convertible_v<ElemType, std::iter_value_t<VectorType>>);
+            std::is_constructible_v<std::iter_value_t<VectorType>, ElemType>);
 
         vec.push_back(arg);
         std::println("Pushed {}(th) element.", Idx);
@@ -97,7 +97,6 @@ int main()
     std::vector<double> v2{ 1, 2, 3 };
     try
     {
-        // Here2应该只打印两次，v2不会被检查size。
         PushBackGuard(v, 4, a, SomeClassMayThrow{ 4 }, v2, 4.0);
         std::println("{}", v.at(3));
         std::println("{}", v2.at(3));

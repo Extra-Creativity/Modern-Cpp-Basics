@@ -109,7 +109,7 @@
    > decltype(auto) Call(PointedType ClassType::* param);
    > 
    > Call(&A::Test); // ClassType == A;
-   > // 当Test为函数时，PointedType为相应的函数类型；否则为就是member object pointer.
+   > // 当Test为函数时，PointedType为相应的函数类型；否则就是member object pointer.
    > ```
 
 ### Part 3
@@ -140,7 +140,7 @@
    我们又知道，`std::tuple`是可以用`std::get<Idx>`来得到第Idx个成员的。所以一种直观的做法是，我们可以通过NTTP来实现`apply`：
 
    ```c++
-   template<typename T, std::size_t... Indices>
+   template<std::size_t... Indices, typename T>
    decltype(auto) apply(T func)
    {
        return func(std::get<Indices>(this->tuple)...);

@@ -33,7 +33,7 @@
 2. 对于一个节点，返回沿着指定的`path`走到的节点，可以进行如下调用：
 
    ```c++
-   Node n; // 假设进行了一些初始化，构成一个合法的树。
+   Node node; // 假设进行了一些初始化，构成一个合法的树。
    
    auto left = &Node::left;
    auto right = &Node::right;
@@ -228,7 +228,7 @@
    {
    public:
        template<typename F>
-       requires std::invocable<const std::decay_t<F>, Args...> // 只能const可调用才能构造
+       requires std::invocable<const std::remove_cvref_t<F>, Args...> // 只有const可调用才能构造
        MoveOnlyFunction(F&&) { }
        
        decltype(auto) operator(Args... args)() const
