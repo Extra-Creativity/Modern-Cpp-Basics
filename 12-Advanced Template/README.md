@@ -181,7 +181,57 @@
 
 1. 选做题：实现`PushBackGuard(v1, e1, v2, e2, ...)`，对`vi`推入元素`ei`，同时要求强异常安全性，即一旦有一个推入失败，该函数已推入的元素需要pop出去，再把异常原封不动地抛出去。
 
+> 最后补充一下User-defined literals在模板上的知识：
+>
+> + 对于整数和浮点数，如果没有其他可能，则会尝试使用如下方式调用：
+>
+>   ```c++
+>   operator""X<'c1 ', 'c2 ', 'c3 ', ..., 'ck '>()
+>   ```
+>
+>   因此，你可以编写如下的user-defined literals：
+>
+>   ```c++
+>   template<char... Chars>
+>   constexpr double operator ""_x()
+>   {
+>       // 利用Chars转成你想要的返回类型。
+>   }
+>   ```
+>
+> + 对于字符串，从C++20开始，如果没有其他可能，则会尝试使用如下方式调用：
+>
+>   ```c++
+>   operator""X<str>()
+>   ```
+>
+>   因此可以利用我们前面的`BasicFixedString`来编写user-defined literals：
+>
+>   ```c++
+>   template<BasicFixedString Str>
+>   constexpr double operator ""_x()
+>   {
+>       // 利用Chars转成你想要的返回类型。
+>   }
+>   ```
+
 ### Part 4
+
+1. 有些情况下，我们可能需要统计对象的生存情况，可以像这样来完成：
+
+   ```c++
+   class Object
+   {
+       static inline int counter = 0;
+   public:
+       Object() { counter++; }
+       Object(const Object&) { counter++; }
+       Object(Object&&) { counter++; }
+       ~Object() { counter--; }
+   };
+   ```
+
+   不过如果要统计的类太多，就要写很多重复代码。思考如何利用CRTP来消除这种冗余。
 
 1. 阅读`std::function`的文档，实现`std::function`；忽略allocator相关的部分（事实上C++17也把`std::function`的allocator支持移除了，见[P0302: Removing Allocator Support in std::function](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0302r1.html)），也不考虑SBO。
 

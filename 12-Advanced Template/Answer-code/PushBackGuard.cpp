@@ -34,7 +34,7 @@ void CheckedPushBackGuard(std::tuple<Ts...> args,
         static_assert(
             std::is_constructible_v<std::iter_value_t<VectorType>, ElemType>);
 
-        vec.push_back(arg);
+        vec.push_back(std::forward<decltype(arg)>(arg));
         std::println("Pushed {}(th) element.", Idx);
         pushedIdx = Idx;
     };

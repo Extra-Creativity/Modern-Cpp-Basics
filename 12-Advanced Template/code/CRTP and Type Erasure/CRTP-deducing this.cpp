@@ -10,13 +10,13 @@ public:
 
 class Student : public StudentBase
 {
-    friend class Super;
+    friend Super;
     float GetGPACoeff() { return 0.8f; }
 };
 
 class JuanWang : public StudentBase
 {
-    friend class Super;
+    friend Super;
     float GetGPACoeff() { return 1.0f; }
 };
 
