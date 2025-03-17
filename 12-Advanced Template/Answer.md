@@ -7,7 +7,7 @@
 2. ```c++
    template<typename T> class A
    {
-       void Test<int, float>(A<int>& a, float);  
+       friend void Test<int, float>(A<int>& a, float);  
    };
    ```
 
@@ -28,7 +28,7 @@
 
 ### Part 2
 
-1. 第一个是普通的pack expansion（因此初始化出一个`initilizer_list`或者`int`，根据`sizeof...(args)`决定），第二个是fold expression。作用都是顺序输出元素。
+1. 第一个是普通的pack expansion（因此初始化出一个`initializer_list`或者`int`，根据`sizeof...(args)`决定），第二个是fold expression。作用都是顺序输出元素。
 
 2. 对于一个节点，返回沿着指定的`path`走到的节点，可以进行如下调用：
 

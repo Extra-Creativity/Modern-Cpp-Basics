@@ -213,7 +213,7 @@
     std::ifstream fin{ "test.txt" };
     fin.exceptions(std::ios::badbit | std::ios::failbit); // 只允许eof，其他抛异常。
     std::ostringstream str;
-    fin >> str;
+    fin >> str.rdbuf();
     std::string_view fileContentView = str.view();
     ```
     
