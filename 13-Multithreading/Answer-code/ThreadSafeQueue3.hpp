@@ -46,36 +46,46 @@ public:
 
     std::optional<int> TryPop()
     {
-        std::lock_guard _{ mutex_ };
+        std::unique_lock lock{ mutex_ };
         if (IsEmptyUnsafe_())
             return std::nullopt;
         std::optional<int> result{ PopUnsafe_() };
+
+        lock.unlock(); // To unlock before condition variable is waken up.
+        fullWait_.notify_one();
         return result;
     }
 
     bool TryPush(int elem)
     {
-        std::lock_guard _{ mutex_ };
+        std::unique_lock lock{ mutex_ };
         if (IsFullUnsafe_())
             return false;
         PushUnsafe_(elem);
+
+        lock.unlock();
+        emptyWait_.notify_one();
         return true;
     }
 
     int Pop()
     {
-        std::unique_lock _{ mutex_ };
-        emptyWait_.wait(_, [this]() { return !IsEmptyUnsafe_(); });
+        std::unique_lock lock{ mutex_ };
+        emptyWait_.wait(lock, [this]() { return !IsEmptyUnsafe_(); });
         int result = PopUnsafe_();
+
+        lock.unlock();
         fullWait_.notify_one();
         return result;
     }
 
     void Push(int elem)
     {
-        std::unique_lock _{ mutex_ };
-        fullWait_.wait(_, [this]() { return !IsFullUnsafe_(); });
+        std::unique_lock lock{ mutex_ };
+        fullWait_.wait(lock, [this]() { return !IsFullUnsafe_(); });
         PushUnsafe_(elem);
+
+        lock.unlock();
         emptyWait_.notify_one();
         return;
     }
