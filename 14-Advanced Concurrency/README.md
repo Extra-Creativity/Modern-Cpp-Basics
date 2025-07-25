@@ -10,6 +10,8 @@
 
 2. 关于标准中memory order相关的叙述，主要可以参考[[intro.multithread\]](https://eel.is/c++draft/intro.multithread)和[[atomics.order\]](https://eel.is/c++draft/atomics.order)两节；cppreference中[Multi-threaded executions and data races](https://en.cppreference.com/w/cpp/language/multithread.html)和[std::memory_order](https://cppreference.com/w/cpp/atomic/memory_order.html)两部分基本与之对应。
 
+3. 存在一些形式化验证memory order正确性的程序，例如[GenMC](https://github.com/MPI-SWS/genmc)。
+
 ## Part 1
 
 以下两道题中，如果assert可能失败，我们也视作程序错误。
