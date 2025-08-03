@@ -98,5 +98,80 @@
 
    对于acquire-release比较好理解，这样就能保证一旦`#1`读到的是`nullptr`以外的值，也即`#7`的值，SW的关系使得HB(#6, #1)，因此使用这个`*p`是安全的，无data races的；而`#4`之所以可以简化为`relaxed`，是因为`mutex`的`unlock`和下一次`lock`存在一个SW的关系，且lock之间存在total order，因此对于第一个进入`#3`者`unlock`后，之后所有进入`#3`者都发生在`#7`后面（即SB(#7, unlock_1), SW(unlock_1, lock_m), SB(lock_m, #4_k)，于是可以推出HB(#7, #4_k)），从而就算是relaxed load也可以正确地读到非`nullptr`的值。
 
+## Part 2
 
+1. 可以通过定义`atomic_ref`：
+
+   ```c++
+   std::atomic_ref val{ arr[i, j] };
+   val++;
+   ```
+
+   除此之外，也可以更一般地定义一个Access Policy，这样就不用总是写这么一个额外的`atomic_ref`了：
+
+   ```c++
+   template<class ElementType>
+   struct atomic_accessor {
+       using offset_policy = std::default_accessor<ElementType>;
+       using element_type = atomic_ref<ElementType>;
+       using reference = atomic_ref<ElementType>;
+       using data_handle_type = ElementType*;
+   
+       constexpr atomic_accessor() noexcept = default;
+   
+       constexpr reference access(data_handle_type p, size_t i) const noexcept {
+           return std::atomic_ref{ p[i] };
+       }
+       constexpr typename offset_policy::data_handle_type
+           offset(data_handle_type p, size_t i) const noexcept {
+           return p + i;
+       }
+   };
+   ```
+
+   这样可以定义`std::mdspan<float, std::dims<2>, std::layout_right, atomic_accessor<float>>`，`operator[]`的访问会自动返回`atomic_ref`。
+
+2. ```c++
+   template<typename T>
+   class LockFreeStack
+   {
+       struct Node
+       {
+           T data;
+           Node* next;
+       };
+       std::atomic<Node*> head_;
+   public:
+       void Push(const T& data)
+       {
+           Node* newNode = new Node{ .data = data };
+           newNode->next = head_.load();
+           while (!head_.compare_exchange_weak(newNode->next, newNode));
+       }
+       
+       std::optional<T> Pop()
+       {
+           Node* oldHead = head_.load();
+           while (oldHead && !head_.compare_exchange_weak(oldHead, oldHead->next));
+           std::optional<T> result = oldHead ? std::nullopt : oldHead.data;
+           delete oldHead;
+           return result;
+       }
+   };
+   ```
+
+   我们来分析一下：
+
+   + 如果有多个线程进行`Push`，则可能其中一个线程的成功`Push`造成head的更新，使得其他线程之前读到的`head_.load()`是不正确的，应该更换为新的head。因此，我们可以通过CAS来及时进行更新：
+
+     + 当`newNode->next`不再是当前的`head_`时，则比较失败，同时`newNode->next`会被赋当前的新head；
+     + 当`newNode->next`是当前的`head_`时，则将`head_`更新为当前节点`newNode`，原子地进行数据结构的更新。
+
+     > 如果`new`失败抛出异常，则由于还没有实际进入到数据结构的操作，因此没有什么影响。以及由于只有开头一处可能抛异常，因此没使用`unique_ptr`也可以。
+
+   + 如果有多个线程进行`Pop`或同时进行`Pop`和`Push`时情况类似。
+
+   最后我们强调，这里是假设了数据的拷贝不会抛出异常，否则情况会复杂的多。一种比较通用的解决方式是使用`std::shared_ptr`来避免拷贝，我们在下一章再讨论这个问题。
+
+   
 
