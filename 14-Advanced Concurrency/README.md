@@ -224,8 +224,57 @@
    >
    > 为了能够一致地完成以上步骤，注意利用`compare_exchange`来完成数据的更新。
 
-
-
 ## Part 3
 
-1. Progress bar.
+1. 对于上一部分的`LockFreeStack`，尝试对其原子操作使用更弱的memory order。
+
+2. 写一个`ProgressBar`类，使其可以满足以下的使用功能：
+
+   ```c++
+   int main()
+   {
+       // 进度条的满进度为1000
+       ProgressBar bar{ 1000 };
+   
+       std::vector<std::jthread> threads;
+       for (int i = 0; i < 10; i++)
+       {
+           threads.emplace_back([&]() {
+               for (int i = 0; i < 100; i++)
+               {
+                   // 进度更新1。
+                   bar.Update();
+                   std::this_thread::sleep_for(100ms);
+               }
+           });
+       }
+   
+       return 0;
+   }
+   ```
+
+   同时`Update`中应该输出形如`[###   ] 50.00%`的进度条，随进度前进来进行输出更新；同时输出的进度条不可回退。
+
+   > 注：如果你感兴趣，你也可以让用户自定义进度条的输出长度、进度填入的字符、空白的字符等，也可以像Python的tqdm一样写一个range adaptor来自动输出进度：
+   >
+   > ```c++
+   > std::vector v{ 1,2,3,4,5 };
+   > for (auto elem : WithProgress(v)) {
+   >     std::this_thread::sleep_for(100ms);
+   > }
+   > ```
+
+3. 引用计数是一个非常常见的并行安全管理方法，在标准库的`std::shared_ptr`、stop token handling等中进行了广泛的使用。本质上，引用计数可以抽象为下面的语句块：
+
+   ```c++
+   sharedBlock->counter.fetch_add(1); // 引用计数器+1，表示自己正在使用
+   sharedBlock->use(); // 正常访问共享块（当然，引用计数器只是保护了共享块在使用结束前不会被删除；并不保护sharedBlock本身访问的data races）
+   if (sharedBlock->counter.fetch_sub(1) == 1)
+       delete sharedBlock;
+   ```
+
+   思考：
+
+   + 上述两个原子操作能否将memory order减弱为relaxed？
+   + 如果不能，可以使用acq_rel吗？
+   + （本题比较困难，可以直接看答案）能否利用release sequence使用更弱的order？

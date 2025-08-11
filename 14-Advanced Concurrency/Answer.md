@@ -173,5 +173,47 @@
 
    最后我们强调，这里是假设了数据的拷贝不会抛出异常，否则情况会复杂的多。一种比较通用的解决方式是使用`std::shared_ptr`来避免拷贝，我们在下一章再讨论这个问题。
 
+
+## Part 3
+
+1. ```c++
+   void Push(const T& data)
+   {
+       Node* newNode = new Node{ .data = data };
+       newNode->next = head_.load(std::memory_order_relaxed);
+       while (!head_.compare_exchange_weak(newNode->next, newNode,
+                                           std::memory_order_release,
+                                           std::memory_order_relaxed));
+   }
    
+   std::optional<T> Pop()
+   {
+       Node* oldHead = head_.load(std::memory_order_relaxed);
+       while (oldHead && !head_.compare_exchange_weak(oldHead, oldHead->next,
+                                                      std::memory_order_acquire,
+                                                      std::memory_order_relaxed));
+       std::optional<T> result = oldHead ? std::nullopt : oldHead.data;
+       delete oldHead;
+       return result;
+   }
+   ```
+
+   relaxed load是因为它们不实际参与同步，就算读到比较老的值也没关系，在CAS中还是会变为正确的值；`Push`的CAS在成功时，需要让其之前的语句（即`new Node`）对于`Pop`中的成功CAS后的语句可见，也即需要建立happens-before的关系，因此`Push`需要用release，而`Pop`需要用acquire。
+
+2. 见`Answer-code/ProgressBar.cpp`，我们分析一下这个过程的正确性：
+
+   + `barGuard_`类似于一个锁，保证了只有一个人可以进入实际的更新代码；其他人则直接略过输出，仅仅更新内部进度。
+
+     这里不能用relaxed，否则内部代码之间推导不出HB的关系，产生data races；我们这里使用acquire-release，从而对`barGuard_`的所有更新构成了以某个store开头的release sequence，下次成功的CAS就可以保证happen after上一次成功的更新了。
+
+   + 注意到进度条不能回退，因此需要引入一个`lastUpdatedCnt_`，否则可能出现之前进度的人因为调度等原因，后拿到`barGuard_`，这样出现了倒退的百分比；为了能最终输出100%，最后一个updater需要保证输出。
+   + 最后的`wait`可以使用relaxed order，是因为它并不参与同步相关的步骤。然而仍然有可能wait结束之后CAS失败（例如另一个线程抢到了guard），因此需要循环。之所以不直接循环CAS是考虑性能原因。
+
+   当然还有一些比较简单的可能的优化空间，以及可能需要额外的防溢出等，我们就不详述了。
+
+   > 注：你也可以让用户定值`emptyChar/fillChar/barLength`，这样需要把`outputBuffer_`写为`std::string`等。
+   >
+   > 你也可以假想一下没有`barGuard`可不可以正确实现，把其他很多因素改为local或atomic的行不行；由于并行的`print`输出是无序的，虽然没有data races，但是不可避免地会导致进度条回退。
+
+3. 见我在知乎上的分析文章：[shared_ptr中原子计数器如何选择memory order?](https://zhuanlan.zhihu.com/p/1931663535085183386)。
 
