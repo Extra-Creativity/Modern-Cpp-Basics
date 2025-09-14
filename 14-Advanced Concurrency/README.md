@@ -278,3 +278,77 @@
    + 上述两个原子操作能否将memory order减弱为relaxed？
    + 如果不能，可以使用acq_rel吗？
    + （本题比较困难，可以直接看答案）能否利用release sequence使用更弱的order？
+
+## Part 4
+
+1. 可以注意到，我们课件上的`NaiveTaskCont`每次`Resume`都要先遍历列表找到最深的任务，再进行恢复；写一个`TaskCont`，使得不需要遍历就达到这个目的，在`Resume`中可以常数复杂度地进行任务。
+
+2. 以下代码是否正确？
+
+   ```c++
+   std::generator<std::string> Test()
+   {
+       co_yield "123";
+       co_yield "456";
+   }
+   
+   int main()
+   {
+       auto rng = Test();
+       auto it = rng.begin();
+       auto&& val = *it;
+       rng++;
+       assert(val == "123");
+   }
+   ```
+
+--------
+
+对coroutine traits的特化做一个例子的补充，虽然用处不大，还是加上。
+
+```c++
+class CoroTask
+{    
+public:
+    friend struct promise_type;
+    using CoroHdl = std::coroutine_handle<promise_type>;
+    
+private:
+    CoroHdl handle_;
+public:
+    CoroTask() = default;
+    struct promise_type {
+        // 正常是不需要构造函数的，而是到get_return_object里返回CoroTask；
+        // 但是我们直接传入了CoroTask，因此只能在这里初始化handle。
+        promise_type(int, CoroTask&& task) {
+            task.handle_ = CoroHdl::from_promise(*this);
+        }
+        void get_return_object() { } // 不需要返回interface。
+    }
+};
+
+template<>
+struct std::coroutine_traits<void, int, CoroTask&>
+{ // 使用参数作为实际的coroutine interface。
+    using promise_type = CoroTask::promise_type;
+};
+
+void MyCoro(int max, CoroTask&)
+{
+    std::cout << "  CORO start\n";
+    for (int val = 1; val <= max; ++val) {
+        std::cout << "  CORO " << val << '\n';
+        co_await std::suspend_always{};
+    }
+    std::cout << "  CORO end\n";
+}
+```
+
+用户需要像下面这样使用：
+
+```c++
+CoroTask coroTask;
+MyCoro(3, coroTask);
+while (coroTask.resume()) { }
+```
+
