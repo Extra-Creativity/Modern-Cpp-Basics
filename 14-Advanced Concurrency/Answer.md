@@ -219,5 +219,5 @@
 
 ## Part 4
 
-1. 不正确，因为`generator`进行resume（即iterator++）后，`co_await`会结束，于是`val`引用的对象时效（即悬垂引用），造成UB。
+1. 不正确，因为`generator`进行resume（即iterator++）后，`co_await`会结束，于是`val`引用的对象失效（即悬垂引用），造成UB。
 2. 见`Answer-code/TaskCont.cpp`。
