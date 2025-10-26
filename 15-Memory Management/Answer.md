@@ -51,7 +51,7 @@
    ```c++
    void* addr = dynamic_cast<void*>(ptr2);
    ptr2->~C();
-   ::operator delete(ptr2, std::align_val_t{1024});
+   ::operator delete(addr, std::align_val_t{1024});
    ```
 
    注意`dynamic_cast`应该在析构函数之前进行，否则对象已经不存在，也就没有most derived class的说法。而且我们说过，这个转型是非常快的。
@@ -99,7 +99,7 @@
            return nullptr;
        
        std::shared_ptr<Node> node{ oldHead };
-       return std::shared_ptr<T>{ node, &(oldHead->data);};
+       return std::shared_ptr<T>{ std::move(node), &(oldHead->data) };
    }
    ```
 
@@ -207,7 +207,6 @@
    ```c++
    class A : public std::enable_shared_from_this<A>
    {
-   private:
        A(int a) { /* ... */ }
        A(float b) { /* ... */ }
    
