@@ -82,15 +82,9 @@
    };
    ```
 
-   然而，在`Pop`中我们需要把`Node*`给delete掉，这样`data`又无效了。C++ Concurrency in Action这本书中引入了hazard pointer来非常复杂地解决这个问题（当然不排除作者就是为了讲hazard pointer），但实际上可以通过课上讲的aliasing constructor共享ownership的方式简单实现：
+   这样我们的`Pop`可以实现成下面的方式：
 
    ```c++
-   struct Node
-   {
-       T data;
-       Node* next;
-   };
-   
    std::shared_ptr<T> Pop()
    {
        Node* oldHead = head_.load();
@@ -98,12 +92,65 @@
        if (!oldHead)
            return nullptr;
        
-       std::shared_ptr<Node> node{ oldHead };
-       return std::shared_ptr<T>{ std::move(node), &(oldHead->data) };
+       auto data = std::move(oldHead->data);
+       delete oldHead;
+       return data;
    }
    ```
 
-   这样，我们就把`Node`的实际管理权限交给了用户，当用户不再使用`data`也即抛弃`shared_ptr`时，会自动对`oldHead`进行`delete`。
+   这可以解决`T`类型拷贝可能抛出异常的问题；然而与上一章的分析相同，这仍然会有悬垂指针的问题。所以我们可以反过来存储`shared_ptr<Node>`：
+
+   ```c++
+   template<typename T>
+   class LockFreeStack
+   {
+       struct Node
+       {
+           T data;
+           std::shared_ptr<Node> next;
+       };
+       std::atomic<std::shared_ptr<Node>> head_;
+   };
+   ```
+
+   此时我们可以配合aliasing constructor以如下方式实现：
+
+   ```c++
+   std::shared_ptr<T> Pop()
+   {
+       std::shared_ptr<Node> oldHead = head_.load();
+       while (oldHead && !head_.compare_exchange_weak(oldHead, oldHead->next));
+       if (!oldHead)
+           return nullptr;
+       
+       return std::shared_ptr<T>{ std::move(oldHead), &(oldHead->data) };
+   }
+   ```
+
+   这样只要有人还在使用`oldHead`，它就不会被释放，不会有悬垂的问题；一旦所有人都不再使用了，这个节点会自动释放。
+
+   > Note：
+   >
+   > + C++ Concurrency in Action这本书中引入了hazard pointer来非常复杂地解决这个问题（当然不排除作者就是为了讲hazard pointer）。
+   >
+   > + 由于掌握了`next`的`shared_ptr`，因此就算`next`已经被pop出去了，只要还有线程使用当前head，`next`也不能释放。这在数据结构端的操作是比较合理的，但是在用户端可能不太合理，因为用户很可能是这么使用的：
+   >
+   >   ```c++
+   >   auto p = stack.Pop();
+   >   // 接下来使用p
+   >   ```
+   >
+   >   只要用户还持有着`p`，那么一连串的节点都不能释放，这也是aliasing constructor在这里的弊端。为了区分两种使用情况，我们也可以把Node写成下面的形式：
+   >
+   >   ```c++
+   >   struct Node
+   >   {
+   >       std::shared_ptr<T> data;
+   >       std::shared_ptr<Node> next;
+   >   };
+   >   ```
+   >
+   >   这样我们可以不用aliasing ctor，而是直接返回`std::move(oldHead->data)`即可。
 
 2. 优点：方法的实现只需要`override`，不需要手写转发，写起来方便很多；同时`final`也能够去除掉在源文件中调用自身函数的开销。
 

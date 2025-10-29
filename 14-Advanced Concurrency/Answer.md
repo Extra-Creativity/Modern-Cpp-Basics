@@ -154,24 +154,33 @@
            Node* oldHead = head_.load();
            while (oldHead && !head_.compare_exchange_weak(oldHead, oldHead->next));
            std::optional<T> result = oldHead ? std::nullopt : oldHead.data;
-           delete oldHead;
            return result;
        }
    };
    ```
-
+   
    我们来分析一下：
-
+   
    + 如果有多个线程进行`Push`，则可能其中一个线程的成功`Push`造成head的更新，使得其他线程之前读到的`head_.load()`是不正确的，应该更换为新的head。因此，我们可以通过CAS来及时进行更新：
-
+   
      + 当`newNode->next`不再是当前的`head_`时，则比较失败，同时`newNode->next`会被赋当前的新head；
      + 当`newNode->next`是当前的`head_`时，则将`head_`更新为当前节点`newNode`，原子地进行数据结构的更新。
-
+   
      > 如果`new`失败抛出异常，则由于还没有实际进入到数据结构的操作，因此没有什么影响。以及由于只有开头一处可能抛异常，因此没使用`unique_ptr`也可以。
-
+   
    + 如果有多个线程进行`Pop`或同时进行`Pop`和`Push`时情况类似。
-
-   最后我们强调，这里是假设了数据的拷贝不会抛出异常，否则情况会复杂的多。一种比较通用的解决方式是使用`std::shared_ptr`来避免拷贝，我们在下一章再讨论这个问题。
+   
+   最后我们强调：
+   
+   + 这里是假设了数据的拷贝不会抛出异常，否则情况会复杂一些；一种比较通用的解决方式是使用`std::shared_ptr`来避免拷贝，我们在下一章再讨论这个问题。
+   
+   + 在`Pop`中我们没有在返回`result`前`delete oldHead`，这是因为可能造成悬垂指针的问题。具体地，我们不妨考虑两个线程同时`Pop`的情况，此时可能出现下面的全局顺序：
+   
+     + `A`线程拿到了当前head；
+     + `B`线程CAS成功，此时得到了当前的head并pop出去，`delete`掉、返回`data`；
+     + `A`线程继续CAS，此时拿到的head已经失效，于是`oldHead->next`造成UB。
+   
+     我们在下一章讲完`std::shared_ptr`后再解决这个问题。
 
 
 ## Part 3
@@ -193,13 +202,12 @@
                                                       std::memory_order_acquire,
                                                       std::memory_order_relaxed));
        std::optional<T> result = oldHead ? std::nullopt : oldHead.data;
-       delete oldHead;
        return result;
    }
    ```
-
+   
    relaxed load是因为它们不实际参与同步，就算读到比较老的值也没关系，在CAS中还是会变为正确的值；`Push`的CAS在成功时，需要让其之前的语句（即`new Node`）对于`Pop`中的成功CAS后的语句可见，也即需要建立happens-before的关系，因此`Push`需要用release，而`Pop`需要用acquire。
-
+   
 2. 见`Answer-code/ProgressBar.cpp`，我们分析一下这个过程的正确性：
 
    + `barGuard_`类似于一个锁，保证了只有一个人可以进入实际的更新代码；其他人则直接略过输出，仅仅更新内部进度。

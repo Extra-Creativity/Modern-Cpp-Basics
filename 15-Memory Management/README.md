@@ -53,7 +53,7 @@
    
    `B`和`C`都存在虚析构函数时，请问上述代码是否一定正确？
    
-   > msvc编译器[存在bug]([c++ - alignment in new operator C++17 - Visual Studio - Stack Overflow](https://stackoverflow.com/questions/55207941/alignment-in-new-operator-c17-visual-studio))，不能手动调用aligned operator new。
+   > msvc编译器[存在bug](https://stackoverflow.com/questions/55207941/alignment-in-new-operator-c17-visual-studio)，不能手动调用aligned operator new。
 
 ## Part2
 
@@ -68,12 +68,11 @@
        while (oldHead && !head_.compare_exchange_weak(oldHead, oldHead->next));
        // 如果下面这句抛出异常，则虽然head的数据没有被读到，但是head已经被pop出去了，造成数据丢失。
        std::optional<T> result = oldHead ? std::nullopt : oldHead.data;
-       delete oldHead;
        return result;
    }
    ```
 
-   思考如何使用智能指针来解决这个问题。
+   此外，为了防止悬垂指针的问题，我们也必须让内存泄漏出去。思考如何使用智能指针来解决这两个问题。
 
 2. [有人提出](https://solidean.com/blog/2025/the-vimpl-pattern-for-cpp/)，可以使用"vimpl"来代替pimpl，如下：
 
