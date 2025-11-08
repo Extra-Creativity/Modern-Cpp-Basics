@@ -227,6 +227,11 @@
 
    因此在头文件的构造函数中就需要对`ControlBlock<AImpl>`进行实例化，而通常实例化类的虚方法也要直接跟着实例化，于是就在头文件中没能看到完整定义时就定义了`delete`语句，仍然是错误的。相反，此时`std::unique_ptr`可以编译成功，因为只是发生了普通的指针赋值。
 
+   > Note:
+   >
+   > 1. 这个也是我们在PPT中关于`use_count`和`operator bool`中`A && !B`的case的原因。
+   > 2. 实际上有些编译器可能也会拒绝`unique_ptr`的代码，和我们在课上讲述pimpl时提到移动构造可能要放到源文件的原因相同，即由于构造函数在抛异常时可能调用成员的析构函数，有些编译器懒得判断，直接强制假设成员析构函数一定可用。
+
 6. 原因：本质上`make_shared`对应的control block要在构造函数里主动构造`A`，而`A`的构造函数又是`private`的，control block没有权限去构造，于是编译错误。
 
    一种可行的解决方案是通过local class继承，可以向`shared_ptr`暴露`A`的构造函数，也基本防止了将其泄露给用户：
@@ -273,3 +278,136 @@
    ```
 
    这种写法唯一的缺点是IDE可能并不能识别出一连串的转发，用户在使用`Create`的时候需要自己去看`A`的构造函数的参数列表。
+
+## Part 3
+
+1. 如下：
+
+   ```c++
+   template<typename SrcIt, typename DstIt, typename Allocator>
+   constexpr DstIt uninitialized_copy(SrcIt begin, SrcIt end, DstIt dst, 
+                                      Allocator& allocator)
+   {
+       using AllocTraits = std::allocator_traits<Allocator>;
+   
+       auto currIt = dst;
+       try
+       {
+           for (; begin != end; ++begin, ++currIt)
+           {
+               AllocTraits::construct(allocator, std::addressof(*currIt), *begin);
+           }
+       }
+       catch (...)
+       {
+           for (; dst != currIt; ++dst)
+           {
+               AllocTraits::destroy(allocator, std::addressof(*dst));
+           }
+           throw;
+       }
+       return currIt;
+   }
+   ```
+
+   事实上大多数标准库都会自己完成一个allocator-aware的版本供容器实现使用，例如[MS-STL](https://github.com/microsoft/STL/blob/48db51b952de9a84b15a8b89b638a55e605235ef/stl/inc/vector#L2116)。
+
+2. 首先将`AllocGuard`的成员改为`protected`，然后使用继承来保证异常安全：
+
+   ```c++
+   template<typename T>
+   class AllocConstructionGuard : public AllocGuard<T>
+   {
+       using Super_ = AllocGuard<T>;
+       using AllocTraits = Super_::AllocTraits;
+   
+   public:
+       template<typename... Args>
+       AllocConstructionGuard(T& alloc, Args&&... args) : Super_{ alloc, 1 }
+       {
+           AllocTraits::construct(this->alloc_, this->ptr_, 
+                                  std::forward<Args>(args)...);
+       }
+   
+       ~AllocConstructionGuard()
+       {
+           if (this->ptr_)
+               AllocTraits::destroy(this->alloc_, this->ptr_);
+       }
+   };
+   ```
+
+   注意`construct`抛出异常时基类会正常析构，从而释放已分配的内存。注意你写的代码是否满足了这种异常安全性。
+
+3. 见`Answer-code/List.cpp`。
+
+4. 如下：
+
+   ```c++
+   class Tracker : public std::pmr::memory_resource
+   {
+       std::pmr::memory_resource* upstream_;
+       std::string id_{};
+   
+       void* do_allocate(size_t bytes, size_t alignment) override
+       {
+           std::cout << id_ << "allocate " << bytes << " Bytes\n";
+           return upstream_->allocate(bytes, alignment);
+       }
+       void do_deallocate(void* ptr, size_t bytes, size_t alignment) override
+       {
+           std::cout << id_ << "deallocate " << bytes << " Bytes\n";
+           upstream_->deallocate(ptr, bytes, alignment);
+       }
+       bool do_is_equal(const std::pmr::memory_resource& other) const noexcept
+       {
+           if (this == &other)
+               return true;
+           auto op = dynamic_cast<const Tracker*>(&other);
+           // 当然，你也可以让prefix不参与比较。
+           return op != nullptr && op->prefix == prefix;
+       }
+   
+   public:
+       explicit Tracker(std::pmr::memory_resource* us) : upstream_{us} { }
+       explicit Tracker(std::string p, std::pmr::memory_resource* us)
+           : id_{std::move(p)}, upstream_{us} { }
+   ```
+
+5. 以`name`为例，当用户传入的`name`的allocator和`alloc`相等，那么和allocator-unaware的过程是相同的。否则：
+
+   + 用户的参数先拷贝到函数参数`name`中；
+   + 由于`name`的allocator和`alloc`不相等，移动构造函数本质上在进行拷贝，从一个内存区域拷贝到另一个内存区域。
+
+   我们第二次移动于是变成了拷贝。为了最大化效率，用户需要按照下面的方式来传递参数：
+
+   ```c++
+   A a{ std::pmr::string{ nameFromAnotherAlloc, &mr },
+        std::pmr::vector<int>{ scoresFromAnotherAlloc, &mr }, &mr };
+   ```
+
+   这样传递参数是发生了allocator不相等导致的拷贝，而构造成员时真正进行了移动。
+
+   这个问题没有非常完美的解决方法。为了省去用户的麻烦，你可以自己定义一个静态函数：
+
+   ```c++
+   template<typename T, typename U>
+   static A Create(T&& name, U&& scores, allocator_type alloc = {})
+   {
+       return A{ std::pmr::string{ std::forward<T>(name), &mr },
+                 std::pmr::vector<int>{ std::forward<U>(scores), &mr }, &mr };
+   }
+   ```
+
+   然而并不是什么很漂亮的接口。
+
+   > 标准库中`flat_set`和`flat_map`也存在这种情况，因为存储两个容器；标准库直接定义了四个重载。见[Issue 3802: flat_foo allocator-extended constructors lack move semantics](https://cplusplus.github.io/LWG/issue3802)。
+
+6. 对于`std::vector`的情况：
+
+   + 如果`[](auto&& str) { return str; }`中`str`发生了拷贝，则由于PMR不进行propagate（其SOCCC返回**默认构造的polymorphic_allocator**，也即使用了默认的mr），从而memory resource为`mr2`；
+   + 反之，如果发生了implicit move（我们在课上讲过，C++23有这样的规定；其实这一项从C++20就已经允许了），则allocator会拷贝到新的`string`里，此时使用的就是`mr1`。
+
+   对于`std::pmr::vector`，`v`本身是默认构造的，所以使用的就是默认的allocator，也就使用的是`mr2`；对于`push_back`进去的string，不管传入的参数用的是`mr1`还是`mr2`，都会通过uses-allocator construction把`vector`本身的allocator传进去，从而使用的总是`mr2`。
+
+   

@@ -125,9 +125,7 @@
 
    如果把`virtual`去掉，又会输出什么？在实际的编译器上进行测试，看看结果是否符合你的预期，并解释原因。
 
-5. `shared_ptr(Y*)`为什么要求complete type（这个实际上是PPT里举得`A&&!B`的最后一个例子，我们在讲解的时候没有特别提醒）。
-
-   在pimpl中，我们提到`std::unique_ptr`必须把特殊的成员函数的定义全部放到源文件（即`Impl`的完整定义之后）；如果像下述代码一样使用`std::shared_ptr`，是否还有这种约束？
+5. 在pimpl中，我们提到`std::unique_ptr`必须把特殊的成员函数的定义全部放到源文件（即`Impl`的完整定义之后）；如果像下述代码一样使用`std::shared_ptr`，是否还有这种约束？
 
    ```c++
    class A
@@ -148,6 +146,7 @@
        std::unique_ptr<Impl> impl_;
        
    protected:
+       // 不考虑编译器认为构造函数因为可能调用析构函数而inline析构函数，下面的语句是正确的。
        A(Impl* initImpl) : ptr{ initImpl } { }
        // 还有其他放在源文件里的特殊成员函数，略。
    };
@@ -191,5 +190,102 @@ noexcept(
 
 ----------
 
-1. Alloctor-aware uninitialized memory algorithm & construction guard.
-1. 改写出Allocator-aware list，注意POCMA之类的问题。
+1. 我们课上说过，标准库中提供的uninitialized memory algorithm全部是allocator unaware的；以`uninitialized_copy`为例，写一个allocator-aware的版本。
+
+1. 尽管可以自己完成allocator-aware uninitialized memory algorithm，但是很多情况下，我们并不需要将内存分配和对象构造进行分离（即我们只需要像`operator new`一样的操作）。模仿我们课上的`AllocGuard`：
+
+   ```c++
+   template<typename T>
+   class AllocGuard
+   {
+       using AllocTraits = std::allocator_traits<T>;
+       using PointerType = AllocTraits::pointer;
+   
+       T& alloc_;
+       PointerType ptr_;
+       std::size_t size_;
+   
+   public:
+       AllocGuard(T& alloc, std::size_t n = 1) : alloc_{ alloc },
+           ptr_{ AllocTraits::allocate(alloc, n) }, size_{ n }
+       {
+       }
+   
+       auto Get() const noexcept { return ptr_; }
+       auto Release() noexcept { return std::exchange(ptr_, PointerType{}); }
+   
+       ~AllocGuard()
+       {
+           if (ptr_)
+               AllocTraits::deallocate(alloc_, ptr_, size_);
+       }
+   };
+   ```
+
+   完成一个`AllocConstructionGuard`，使得：
+
+   + 如果对`T`的构造抛出异常，则内存会自动释放；
+   + 如果`AllocConstructionGuard`已构造完成，之后有其他语句抛出异常，则对象会自动析构，内存会自动释放。
+
+1. 我们在课上简单改写了之前第7&9章中`List`的实现，但是它并没有真的成为一个allocator-aware的版本，因为大部分构造函数没有增加allocator作为参数。请进一步改写`List`，使它真正满足一般的支持allocator的容器。注意POCMA等问题。
+
+1. 写一个类`Tracker`，它本身是一个memory resource，存储一个upstream memory resource的指针及一个名字作为ID，内存分配等任务将会进行log后再交给upstream进行处理。
+
+1. 我们在allocator-unaware的类中，为了减少重载的数量，我们可能会这么写构造函数（在移动语义章节中讨论过）：
+
+   ```c++
+   class A
+   {
+       std::string name_;
+       std::vector<int> scores_;
+       
+   public:
+       // 1 copy + 1 move for lvalue parameter passed by users, 2 move for rvalue.
+       A(std::string name, std::vector<int> scores) 
+           : name_{ std::move(name) }, scores_{ std::move(scores) }
+       {
+       }
+   };
+   ```
+
+   这样对比$2^n$个重载（每个参数都分为左值引用+右值引用），每个参数多了一次移动，但是通常这是可以接受的。小明受到启发，对allocator-aware的类使用了类似的技巧：
+
+   ```c++
+   class A
+   {
+       std::pmr::string name_;
+       std::pmr::vector<int> scores_;
+       
+   public:
+       using allocator_type = std::polymorphic_allocator<std::byte>;
+       
+       A(std::pmr::string name, std::pmr::vector<int> scores, allocator_type alloc = {})
+           : name_{ std::move(name), alloc.resource() },
+             scores_{ std::move(scores), alloc.resource() }
+       {
+       }
+   };
+   ```
+
+   讨论这时会有什么可能过程，除了一次额外移动外是否可能有其他的性能陷阱。
+
+1. 对于下述代码：
+
+   ```c++
+   auto mr1 = std::pmr::monotonic_buffer_resource();
+   auto &mr2 = *std::pmr::get_default_resource();
+   std::pmr::string a[2] = {
+       std::pmr::string("hello", &mr1),
+       std::pmr::string("world", &mr1),
+   };
+   // 注意这里是std::vector，不是std::pmr::vector
+   std::vector<std::pmr::string> v;
+   std::transform(
+       std::make_move_iterator(a),
+       std::make_move_iterator(a + 2),
+       std::back_inserter(v),
+       [](auto&& str) { return str; }
+   );
+   ```
+
+   `v[0]`的allocator对应的memory resource是什么？如果不同的C++版本可能造成不同的结果，请一并讨论。改成`std::pmr::vector`，`v`的memory resource是什么，对结论是否有影响？
