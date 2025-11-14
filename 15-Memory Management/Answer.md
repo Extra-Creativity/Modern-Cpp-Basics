@@ -364,8 +364,8 @@
            if (this == &other)
                return true;
            auto op = dynamic_cast<const Tracker*>(&other);
-           // 当然，你也可以让prefix不参与比较。
-           return op != nullptr && op->prefix == prefix;
+           // 当然，你也可以让id不参与比较。
+           return op != nullptr && op->id_ == id_;
        }
    
    public:

@@ -195,7 +195,7 @@
    class A
    {
    public:
-       void AddAttribute();
+       void AddAttribute(...);
    private:
        // Invariants: names.size() == scores.size();
        std::vector<std::string> names;

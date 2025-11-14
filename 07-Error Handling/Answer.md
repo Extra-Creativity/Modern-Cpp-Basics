@@ -96,8 +96,6 @@
    template<typename T>
    class List : public ListBase<T>
    {
-       auto& GetSentinel_() { return this->sentinel_; }
-       
    public:
        class ConstIterator
        {
@@ -148,8 +146,8 @@
        List(const List& another) : List{ another.begin(), another.end() } {}
        void swap(List &another) noexcept
        {
-           std::swap(GetSentinel_().prev, GetSentinel_().prev);
-           std::swap(GetSentinel_().next, GetSentinel_().next);
+           std::swap(this->sentinel_.prev, another.sentinel_.prev);
+           std::swap(this->sentinel_.next, another.sentinel_.next);
        }
        
        List& operator=(const List &another)
@@ -163,5 +161,5 @@
        }
    };
    ```
-
+   
 5. 不能，因为如果`scores`插入时异常抛出，则`names`和`scores`的数量将会不一致。一种解决方法是把`name`和`score`合并为一个结构体，只保留一个`std::vector<Info>`；除此之外也可以进行`try-catch`，如果抛出了则看二者大小是否一致，不一致则pop出去一个，然后`throw;`重新抛出异常。我们在模板这一章会写一个通用的`PushbackGuard`来对任意数量的`std::vector`进行整体的数量保持。
