@@ -339,7 +339,7 @@
 
    注意`construct`抛出异常时基类会正常析构，从而释放已分配的内存。注意你写的代码是否满足了这种异常安全性。
 
-3. 见`Answer-code/List.cpp`。
+3. 见`Answer-code/List.hpp`，在103行之前都是上面写过的代码（`CompressedPair`、`AllocGuard`等）。虽然本意是只实现allocator-aware的构造函数和赋值函数，但是通过实现这些功能需要包装`Insert`等函数，所以顺便写了几个相关的接口。大概可以用`Answer-code/List.test.cpp`简单测试一下（覆盖不全，仅作为参考）。
 
 4. 如下：
 
