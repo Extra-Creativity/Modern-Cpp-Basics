@@ -1,106 +1,13 @@
 #pragma once
 
+#include "AllocGuard.hpp"
+#include "CompressedPair.hpp"
+
 #include <algorithm>
 #include <format>
-#include <memory>
-#include <tuple>
-#include <utility>
 #include <vector>
 
 #include <cassert>
-
-template<typename FirstType, typename EmptySecondType>
-class CompressedPair : public EmptySecondType
-{
-    FirstType first_;
-
-    template<typename Tuple1, typename Tuple2, std::size_t... Indices1,
-             std::size_t... Indices2>
-    CompressedPair(Tuple1 &tuple1, Tuple2 &tuple2,
-                   [[maybe_unused]] std::index_sequence<Indices1...> indices1,
-                   [[maybe_unused]] std::index_sequence<Indices2...> indices2)
-        : EmptySecondType(std::get<Indices2>(tuple2)...),
-          first_(std::get<Indices1>(tuple1)...)
-    {
-    }
-
-public:
-    CompressedPair() = default;
-
-    template<typename T2, typename U2>
-    CompressedPair(T2 &&first, U2 &&second)
-        : EmptySecondType{ std::forward<U2>(second) },
-          first_{ std::forward<T2>(first) }
-    {
-    }
-
-    template<class... Args1, class... Args2>
-    CompressedPair(std::piecewise_construct_t, std::tuple<Args1...> firstArgs,
-                   std::tuple<Args2...> secondArgs)
-        : CompressedPair{ firstArgs, secondArgs,
-                          std::make_index_sequence<sizeof...(Args1)>(),
-                          std::make_index_sequence<sizeof...(Args2)>() }
-    {
-    }
-
-    auto &&First(this auto &&self) noexcept
-    {
-        return std::forward_like<decltype(self)>(self.first_);
-    }
-
-    auto &&Second(this auto &&self) noexcept
-    {
-        return std::forward_like<decltype(self)>((EmptySecondType &)self);
-    }
-};
-
-template<typename T>
-class AllocGuard
-{
-protected:
-    using AllocTraits = std::allocator_traits<T>;
-    using PointerType = AllocTraits::pointer;
-
-    T &alloc_;
-    PointerType ptr_;
-    std::size_t size_;
-
-public:
-    AllocGuard(T &alloc, std::size_t n = 1)
-        : alloc_{ alloc }, ptr_{ AllocTraits::allocate(alloc, n) }, size_{ n }
-    {
-    }
-
-    auto Get() const noexcept { return ptr_; }
-    auto Release() noexcept { return std::exchange(ptr_, PointerType{}); }
-
-    ~AllocGuard()
-    {
-        if (ptr_)
-            AllocTraits::deallocate(alloc_, ptr_, size_);
-    }
-};
-
-template<typename T>
-class AllocConstructionGuard : public AllocGuard<T>
-{
-    using Super_ = AllocGuard<T>;
-    using AllocTraits = Super_::AllocTraits;
-
-public:
-    template<typename... Args>
-    AllocConstructionGuard(T &alloc, Args &&...args) : Super_{ alloc, 1 }
-    {
-        AllocTraits::construct(this->alloc_, this->ptr_,
-                               std::forward<Args>(args)...);
-    }
-
-    ~AllocConstructionGuard()
-    {
-        if (this->ptr_)
-            AllocTraits::destroy(this->alloc_, this->ptr_);
-    }
-};
 
 template<typename T, typename Alloc>
 struct ListNode
@@ -194,7 +101,7 @@ class List : public ListBase<T, Alloc>
     static constexpr bool AllocAlwaysEqual =
         AllocTraits::is_always_equal::value;
 
-    // To prevent code duplication in Iterator and ConstInterator.
+    // To prevent code duplication in Iterator and ConstIterator.
     template<typename Derived, typename ValueT>
     class IteratorBase
     {

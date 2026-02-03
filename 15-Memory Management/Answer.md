@@ -2,7 +2,7 @@
 
 ## Part 1
 
-1. 见`Answer-code/CompressedPair.cpp`。有以下几点需要注意：
+1. 见`Answer-code/CompressedPair.hpp`。有以下几点需要注意：
 
    + 类似`std::pair`，额外实现了`std::piecewise_construct_t`的重载，使得可以使用下面的方式来构造：
 
@@ -337,9 +337,50 @@
    };
    ```
 
-   注意`construct`抛出异常时基类会正常析构，从而释放已分配的内存。注意你写的代码是否满足了这种异常安全性。
+   注意`construct`抛出异常时基类会正常析构，从而释放已分配的内存。注意你写的代码是否满足了这种异常安全性。完整代码已放在`Answer-code/AllocGuard.hpp`中。
 
-3. 见`Answer-code/List.hpp`，在103行之前都是上面写过的代码（`CompressedPair`、`AllocGuard`等）。虽然本意是只实现allocator-aware的构造函数和赋值函数，但是通过实现这些功能需要包装`Insert`等函数，所以顺便写了几个相关的接口。大概可以用`Answer-code/List.test.cpp`简单测试一下（覆盖不全，仅作为参考）。
+3. 见`Answer-code/List.hpp`。虽然本意是只实现allocator-aware的构造函数和赋值函数，但是通过实现这些功能需要包装`Insert`等函数，所以顺便写了几个相关的接口。大概可以用`Answer-code/List.test.cpp`简单测试一下（覆盖不全，仅作为参考）。
+
+   特别地，可以注意到我们在List内部存储了一个节点（即libstdc++/libc++实现），防止空list仍然需要一次分配（即MS-STL实现）。然而，这种方式在引入allocator后就会遇到一个问题：
+
+   + `ListNode`取地址得到的指针，一定是`RealAllocTraits::pointer`吗？
+
+   答案是否定的！只有allocator分配出来的指针一定是这个类型。libstdc++最初的实现与我们本质上一致，所以也不支持fancy pointer。在2024年，libstdc++最终解决了这个问题：[libstdc++: Add fancy pointer support to std::list](https://github.com/gcc-mirror/gcc/commit/f29d1b5836790ec795cb51bcfe25f7270b3e9f30)。这需要通过`pointer_traits`进行一些变换：
+
+   ```c++
+   template<typename T, typename PtrT>
+   struct ListNode
+   {
+       using NodePointerTraits = std::pointer_traits<PtrT>::rebind<ListNode<PtrT>>;
+       using NodePointer = PointerTraits::pointer;
+   
+       /* 这里libstdc++用的是using ValueType = std::pointer_traits<PtrT>::element_type;
+          但是标准中List规定的value_type, reference等是T, T&等，通过front等接口会暴露这个定义。
+          如果使用上述ValueType，可能会导致ValueType本身不是T，造成错误；所以我们这里直接用T。 */
+       using ValueType = T;
+       
+       NodePointer prev;
+       NodePointer next;
+       ValueType value;
+       
+       NodePointer GetNodePtr() const noexcept
+       { // 这里保证从自己返回的pointer类型就是NodePointer.
+           return PointerTraits::pointer_to(*this);
+       }
+   };
+   
+   template<typename T, typename Alloc>
+   class ListBase
+   {
+       using AllocTraits = std::allocator_traits<Alloc>;
+       // E.g. ListNode<int, int*> for ListBase<int, std::allocator<int>>.
+       ListNode<T, AllocTraits::pointer> sentinel_;
+   };
+   ```
+
+   > 注：我们之前说过，`sentinel_`不应该直接存储`T value`，否则List无法保证可默认构造（因为`T`可能无法默认构造）；虽然可以通过`char[]`来解决，但实际上我们是不需要这个`value`的；libstdc++和libc++实际上使用了`ListNodeBase`来只记录prev和next；`ListNode`继承自`ListNodeBase`。sentinel使用`ListNodeBase`，而分配其他节点时使用`ListNode`来存储value。虽然iterator存的是`ListNodeBase*`，但是在dereference时进行`static_cast<ListNode>`即可（毕竟dereference end是UB，所以end对应的sentinel不是真的`ListNode`也没关系）。
+   >
+   > 关于`pointer_traits`我们没有详细讲，本质上也是对元素位置的一种抽象，可以看看[这篇博客](https://github.com/Quuxplusone/from-scratch/blob/master/include/scratch/bits/traits-classes/pointer-traits.md)。
 
 4. 如下：
 
