@@ -4,10 +4,15 @@
 
 namespace Detail
 {
-
+template<typename>
+constexpr bool is_reference_wrapper_v = false;
 template<typename T>
+constexpr bool is_reference_wrapper_v<std::reference_wrapper<T>> = true;
+
+template<typename T0>
 struct InvokeHelper
 {
+    template<typename T>
     static constexpr decltype(auto) Call(T &&func, auto &&...args)
     {
         return std::forward<T>(func)(std::forward<decltype(args)>(args)...);
@@ -15,7 +20,7 @@ struct InvokeHelper
 };
 
 template<typename T0>
-requires std::is_member_pointer_v<T0>
+    requires std::is_member_pointer_v<T0>
 struct InvokeHelper<T0>
 {
     template<typename PointedType, typename ClassType, typename T,
@@ -23,8 +28,12 @@ struct InvokeHelper<T0>
     static constexpr decltype(auto) Call(PointedType ClassType::*func, T &&obj,
                                          Args &&...args)
     {
-        using ObjectType = std::remove_reference_t<
-            std::unwrap_reference_t<std::remove_cvref_t<T>>>;
+        using RawT = std::remove_cvref_t<T>;
+        constexpr bool isReferenceWrapper = is_reference_wrapper_v<RawT>;
+        // 注：这里在下面的constexpr分支中判断isReferenceWrapper后直接调用也可以。
+        using ObjectType = std::remove_reference_t<std::conditional_t<
+            isReferenceWrapper, std::unwrap_reference_t<RawT>, T>>;
+
         ObjectType &realObj = obj;
         static constexpr bool matchCase =
             std::is_same_v<ClassType, ObjectType> ||
@@ -60,7 +69,6 @@ struct InvokeHelper<T0>
         }
     }
 };
-
 } // namespace Detail
 
 template<typename F, typename... Args>
@@ -87,14 +95,19 @@ public:
     }
 };
 
-int main()
+class B
 {
-    std::println("----Normal function test----");
-    std::println("Hi, {}", Invoke(Test, 1));
-    std::println("----Normal function pointer test----");
-    std::println("Hi, {}", Invoke(Test, 1));
+public:
+    int operator()(int param) const
+    {
+        std::println("Hi, {}", param);
+        return param + 1;
+    }
+};
 
-    A a;
+template<typename T>
+void ObjectTest(T &a)
+{
     std::println("----Member function pointer + obj caller test----");
     std::println("Hi, {}", Invoke(&A::Test, A{}, 1));
     std::println("Hi, {}", Invoke(&A::Test, a, 1));
@@ -120,6 +133,31 @@ int main()
 
     std::println("----Data member pointer + pointer caller test----");
     std::println("Hi, {}", Invoke(&A::m, &a));
+}
+
+int main()
+{
+    std::println("----Normal function test----");
+    std::println("Hi, {}", Invoke(Test, 1));
+    std::println("----Normal function pointer test----");
+    std::println("Hi, {}", Invoke(Test, 1));
+
+    B b1;
+    std::println("----Normal functor test----");
+    std::println("Hi, {}", Invoke(b1, 1));
+    std::println("Hi, {}", Invoke(B{}, 2));
+
+    const B b2;
+    std::println("----Const functor test----");
+    std::println("Hi, {}", Invoke(b2, 3));
+
+    std::println("Non-const object member pointer test: ", Invoke(Test, 1));
+    A a1;
+    ObjectTest(a1);
+
+    std::println("Const object member pointer test: ", Invoke(Test, 1));
+    const A a2;
+    ObjectTest(a2);
 
     return 0;
 }
