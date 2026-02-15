@@ -59,7 +59,57 @@
 
      Linux未经过转码，且默认可以处理UTF-8，于是正确；对于Windows，如果使用了UTF-8的execution charset（严格说是ordinary literal encoding是UTF-8，此时print会使用ACP为UTF-8的console设置进行输出），且ACP不是UTF-8（从而`.string()`的编码不是UTF-8），则输出错误；如果没有使用UTF-8的execution charset，则默认仍然使用ACP作为console ACP，输出仍然是正确的。
 
-3. `std::error_code`：TODO
+3. `std::error_code`：由一个category和一个整数错误码组成，默认为`std::system_category()`和`0`（无错误）。在标准库中包含以下几类（全部包含在`<system_error>`中，以函数形式提供单例）：
+
+   + `system_category`：平台相关的错误码，无直接的统一规范；
+   + `generic_category`：一般性错误码，使用了POSIX的规范；这种错误码在C++中可以由`std::errc`这个枚举表示，见[std::errc - cppreference.com](https://cppreference.com/w/cpp/error/errc.html)；通过`make_error_code(errc)`就可以把`errc`转换为`error_code`。
+   + `io_category`：I/O错误码，在`std::ios_base::failure`中进行使用（也即`.exception()`设置流后抛出的异常）；这种错误码在C++中可以由`std::io_errc`这个枚举表示，见[std::io_errc - cppreference.com](https://cppreference.com/w/cpp/io/io_errc.html)。默认只有一个枚举值，实现允许定义更多的枚举值。
+   + `future_category`：`<future>`中的错误码，我们之前讲过了，由`std::future_errc`表示，包含 `broken_promise`，`future_already_retrieved`，`promise_already_satisfied`，`no_state`四个枚举值。
+
+   后三者可以通过`make_error_code`将`xxx_errc`转为`std::error_code`并包含相应的category（也可以直接构造，这时会通过ADL调用`make_error_code`）。以上类型并不直接对用户可见，它们统一继承自`std::error_category`，其包含一系列虚方法，具体可以参见[std::error_category - cppreference.com](https://cppreference.com/w/cpp/error/error_category.html)。
+
+   既然`system_category`是平台相关的，那么是不是我们就不能写出可移植的错误处理了呢？C++其实提供了一个`std::error_condition`来辅助完成这个事情；它同样只有一个category和一个整数错误码；但是当它与一个`std::error_code`判断相等时，会调用其category的虚方法`equivalent`：
+
+   ```c++
+   // 默认：看code的category是不是当前category，且condition是不是code的错误码，比较plain的比较。
+   virtual bool equivalent(const std::error_code& code,
+                           int condition) const noexcept;
+   // 默认：调用this->default_error_condition(code)，判断是否与condition逐成员相等
+   virtual bool equivalent(int code,
+                           const std::error_condition& condition) const noexcept;
+   ```
+
+   > 注意，`std::error_code`的比较就是value和category分别比较，并不会使用虚方法，也就没有定制的空间。
+
+   那么核心就在于`default_error_condition(int err) -> std::error_condition`是什么作用；在`std::system_category`中，规定：
+
+   > If the argument `ev` is equal to `0`, the function returns `error_condition(0, generic_category())`. Otherwise, if `ev` corresponds to a POSIX `errno` value `posv`, the function returns `error_condition(posv, generic_category())`. Otherwise, the function returns `error_condition(ev, system_category())`. What constitutes correspondence for any given operating system is unspecified.
+
+   也就是说，它需要在这个函数中尽可能地将平台相关的错误转为POSIX中的错误，并返回`std::error_condition{ POSIX_ERROR, std::generic_category() }`；如果POSIX中没有对应错误，再返回`std::system_category`。例如，我们想要跨平台地判断”文件夹不存在“时，可以使用下面的方式：
+
+   ```c++
+   std::error_code err;
+   std::directory_iterator it{ root, err }
+   if (err) // 如果发生错误
+   {
+       // 如果错误是POSIX中的no_such_file_or_directory
+       if (err == std::error_condition{ std::errc::no_such_file_or_directory })
+           std::cerr << "No such directory: " << args.root << "\n";
+       return;
+   }
+   ```
+
+   注意，你不能使用下面的代码：
+
+   ```c++
+   if (err == std::error_code{ std::errc::no_such_file_or_directory })
+   ```
+
+   因为windows赋的错误码整数不和上述整数一致，从而并不能得到相等的结果。
+
+   当然如果你想用switch case，你也可以手动调用`err.category.default_error_condition()`，先判断一下结果的category是不是generic category，如果是，就调用`.value()`并转成`std::errc`来switch枚举就可以了。
+
+   具体MS-STL的映射可见[STL/stl/src/syserror.cpp](https://github.com/microsoft/STL/blob/a690f8442de28e1bd1c461ad27279c591954482f/stl/src/syserror.cpp#L29)，filesystem中涉及的错误码可见[STL/stl/inc/xfilesystem_abi.h](https://github.com/microsoft/STL/blob/a690f8442de28e1bd1c461ad27279c591954482f/stl/inc/xfilesystem_abi.h#L25)；如果不需要判断这些东西，只想打印一句信息，可以直接使用`error_code`的`.message()`。
 
 ## Filesystem
 
