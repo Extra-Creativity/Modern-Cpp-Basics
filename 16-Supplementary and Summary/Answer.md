@@ -14,7 +14,9 @@
 
 ### Part 2
 
-1. 见`Answer-code/Tree.cpp`。注意几点：
+1. 见[std::filesystem::directory_iterator::directory_iterator - cppreference.com](https://cppreference.com/w/cpp/filesystem/directory_iterator/directory_iterator.html)，作为error处理。
+
+2. 见`Answer-code/Tree.cpp`。注意几点：
 
    + 在msvc下使用`/utf-8`进行编译，因为我们使用了Unicode字符，所以希望`std::print`可以使用UTF-8 ACP去打印。
 

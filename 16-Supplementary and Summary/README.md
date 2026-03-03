@@ -111,6 +111,16 @@
 
    具体MS-STL的映射可见[STL/stl/src/syserror.cpp](https://github.com/microsoft/STL/blob/a690f8442de28e1bd1c461ad27279c591954482f/stl/src/syserror.cpp#L29)，filesystem中涉及的错误码可见[STL/stl/inc/xfilesystem_abi.h](https://github.com/microsoft/STL/blob/a690f8442de28e1bd1c461ad27279c591954482f/stl/inc/xfilesystem_abi.h#L25)；如果不需要判断这些东西，只想打印一句信息，可以直接使用`error_code`的`.message()`。
 
+4. 本质上，`(recursive_)directory_iterator`的实现是`shared_ptr<Impl>`，所以拷贝iterator会和原来的iterator共享一个`Impl`，使得它们的操作并不独立。例如：
+
+   ```c++
+   std::recursive_iterator it{ "." };
+   auto it2 = it;
+   ++it; // 对Impl进行操作，it2于是也隐式地被++了
+   ```
+
+   这是两个iterator在实现上是input iterator而不是forward iterator的原因。
+
 ## Filesystem
 
 ### Part 1
@@ -125,7 +135,9 @@
 
 ### Part 2
 
-1. 完成`tree`指令，只需要支持`-L X`来使得只列举深度不超过`L`的所有文件；自行搜索具体`tree`的输出效果。
+1. 查询cppreference，构造`directory_iterator`传入regular file时，得到的iterator是什么结果？
+
+2. 完成`tree`指令，只需要支持`-L X`来使得只列举深度不超过`L`的所有文件；自行搜索具体`tree`的输出效果。
 
    > 注：你可能会用到以下几个Unicode字符：
    >
