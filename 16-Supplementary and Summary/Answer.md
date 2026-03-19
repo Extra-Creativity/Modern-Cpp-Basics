@@ -31,3 +31,9 @@
      ```
 
      但是`(recursive_)directory_iterator`是input iterator，也就不保证multi-pass（即拷贝迭代器，不能保证拷贝的解引用与原解引用一致）。实际上，它们的实现通常是`shared_ptr<Impl>`，即所有的拷贝操纵同一个对象，因此`disable_recursion_pending`后会直接影响`it`。
+
+## Chrono
+
+### Part 1
+
+1. 因为`operator+=`的参数是和自己相同的`duration`类型；同时不能从`std::duration<Float>`构造`std::duration<Int>`，构造函数会去除这个overload，所以编译错误。
