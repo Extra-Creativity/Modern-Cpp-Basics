@@ -146,6 +146,9 @@
    > 3. `U+251C`:├。
 
 ## Chrono
+
+补注：`local_time`输出时要求等价于输出其构造的`sys_time`，而`sys_time`在表示是floating point且单位小于1天时不能输出，所以此时`local_time`也不能输出。
+
 ### Part 1
 
 1. 解释下述代码为何编译失败：
