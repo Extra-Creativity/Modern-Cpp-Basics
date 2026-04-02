@@ -159,3 +159,31 @@
    a += b;
    ```
 
+### Part 2
+1. 如何计算两个日期之间相差多少天？
+
+   ```c++
+   stdc::days GetDiffDays(const stdc::year_month_day& from, 
+                          const stdc::year_month_day& to)
+   {
+       // TODO
+   }
+   ```
+
+2. 对于给定日期，给出下一个周一的日期。
+
+   ```c++
+   stdc::year_month_day GetNextMonday(const stdc::year_month_day& date)
+   {
+       // TODO
+   }
+   ```
+
+3. 小明想要在每月的31日安排会议；当该月没有31日时，按照超过的天数安排在下一个月开头。
+
+   ```c++
+   void OutputSchedule(stdc::year year)
+   {
+       // TODO
+   }
+   ```

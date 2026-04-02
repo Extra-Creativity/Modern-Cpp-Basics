@@ -37,3 +37,44 @@
 ### Part 1
 
 1. 因为`operator+=`的参数是和自己相同的`duration`类型；同时不能从`std::duration<Float>`构造`std::duration<Int>`，构造函数会去除这个overload，所以编译错误。
+
+### Part 2
+
+1. ```c++
+   stdc::days GetDiffDays(const stdc::year_month_day& from, 
+                          const stdc::year_month_day& to)
+   {
+       return stdc::sys_days{ to } - stdc::sys_days{ from };
+   }
+   ```
+
+   当然，你也可以定义为模板函数，这样对于`year_month_weekday`等也可以混合计算。后面的题目也类似。
+
+2. ```c++
+   stdc::year_month_day GetNextMonday(const stdc::year_month_day& date)
+   {
+       auto currWeekday = stdc::weekday{ date };
+       auto diffDays = stdc::Monday - currWeekday;
+       if (diffDays == 0)
+           diffDays = 7;
+       // sys_days进行运算，然后构造回year_month_day
+       return stdc::sys_days{ date } + diffDays;
+   }
+   ```
+
+   注意：当今天是周二时，`diffDays`为6（由于weekday运算的取mod性质），此时仍然是下一个周一。虽然月份有类似的性质，但是各个类型直接提供了`months`的`operator+`，所以不需要像上面一样搞个新函数。
+
+3. ```c++
+   void OutputSchedule(stdc::year year)
+   {
+       for (int i = 0; i < 12; i++)
+       {
+           auto ymd = year / i / 31;
+           if (!ymd.ok())
+               ymd = stdc::sys_days{ ymd };
+           std::cout << "We'll meet on " << ymd << "\n";
+       }
+   }
+   ```
+
+   由于`day`可以存储0~255之间的数值，所以在转换到time point时会自动考虑超过的数值，再转换回来就变成了合法的日期。
