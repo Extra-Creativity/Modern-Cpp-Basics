@@ -160,6 +160,9 @@
    ```
 
 ### Part 2
+
+我们在课上说可以自定义time zone，但是没有进行详细的说明，我们将相关的讲解放在了作业的最末尾。
+
 1. 如何计算两个日期之间相差多少天？
 
    ```c++
@@ -187,3 +190,86 @@
        // TODO
    }
    ```
+
+---
+
+关于自定义time zone：由于`zoned_time`提供了第二个模板参数，只是默认是`const time_zone*`，因此我们可以通过替换它来自定义。具体地，我们可能需要提供以下的函数（由于模板lazy instantiation的存在，不使用的功能是允许不提供的）：
+
+1. 对`stdc::zoned_traits<TimeZonePtr>`的特化：可能需要自定义下面的函数
+
+   + 若希望使用“默认时区”（即当构造函数缺少时区时使用的时区），此时需要自定义`static TimeZonePtr default_zone();`。
+   + 若希望使用名字对时区进行定位，此时需要自定义`static TimeZonePtr locate_zone(std::string_view name)`。
+
+   本质上`const time_zone*`的特化就是分别`stdc::locate_zone("UTC")`和`stdc::locate_zone(name)`。
+
+2. 类本身需要定义的成员函数：本质上，`zoned_time`会存储一个`sys_time`，用来唯一地表征当前时间。
+
+   + `zoned_time`构造函数：
+
+     + 若只使用`sys_time`初始化的构造函数，则无需提供特殊函数。
+
+     + 若需要使用`local_time`的构造函数，则需要提供`to_sys(stdc::local_time<Duration>) -> stdc::sys_time<XXX>`。如果需要使用`choose`参数，则也要提供对应的重载。
+
+       > 当然使用`const&`也可以，总之能让参数传进去就行了。
+
+   + `zoned_time`成员函数：
+     + 若需使用`get_local_time`，则需要提供`to_local(const stdc::sys_time<Duration>&) -> stdc::local_time<XXX>`。
+     + 若需使用`get_info`和formatter，则需要提供`get_info(const stdc::sys_time<Duration>&) -> stdc::sys_info`。
+
+例如，我们假设需要定义一个`OffsetZone`，它并不具有一个具体的名字，只是记录偏移多少时间，此时我们可能需要定义下面的函数：
+
+```c++
+class OffsetZone
+{
+    std::chrono::minutes offset;  // UTC offset
+public:
+    explicit OffsetZone(std::chrono::minutes offs) : offset{offs} {}
+    // 为了使用get_local_time
+    template<typename Duration>
+    auto to_local(stdc::sys_time<Duration> tp) const {
+        using LT = stdc::local_time<std::common_type_t<Duration, stdc::minutes>>;
+        return LT{ (tp + offset).time_since_epoch() };
+    }
+    // 为了可以从local_time进行构造
+    template<typename Duration>
+    auto to_sys(stdc::local_time<Duration> tp) const {
+        // define helper type for system time:
+        using ST = stdc::sys_time<std::common_type_t<Duration, stdc::minutes>>;
+        // convert to system time:
+        return ST{(tp - offset).time_since_epoch()};
+    }
+    // 为了可以使用get_info
+    template<typename Duration>
+    auto get_info(const stdc::sys_time<Duration>& tp) const {
+        return stdc::sys_info{ .offset = offset, .abbrev = "OFFSET" };
+    }
+};
+```
+
+那么我们就可以写出下面的程序：
+
+```c++
+int main()
+{
+    using namespace std::literals;
+    
+    OffsetZone p3_45{3h + 45min};
+    // convert now to timezone with offset:
+    auto now = stdc::local_days{ 2021y / 1 / 2 } + 18h + 30min;
+    stdc::zoned_time<decltype(now)::duration, OffsetZone*> zt{ &p3_45, now };
+    
+    std::cout << "UTC: " << zt.get_sys_time() << '\n';
+    std::cout << "+3:45: " << zt.get_local_time() << '\n';
+    std::cout << zt << '\n';
+}
+```
+
+最后打印结果如下：
+
+```text
+UTC: 2021-01-02 14:45:00
++3:45: 2021-01-02 18:30:00
+2021-01-02 18:30:00 OFFSET
+```
+
+你可以试试把`stdc::local_days`换成`stdc::sys_days`，看看打印结果有什么变化。
