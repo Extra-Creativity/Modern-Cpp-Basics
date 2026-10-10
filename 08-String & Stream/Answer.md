@@ -217,7 +217,7 @@
     std::string_view fileContentView = str.view();
     ```
     
-    这种方式由于一次性读入，理论上来说比其他方式要更快。
+    这种方式由于一次性读入，理论上来说比其他方式要更快（但是在MS-STL测试，可以发现实际上是比正常读入慢的）。
     
     > 我们还有一个`operator>>(Func)`没有提到，即可以自定义I/O manipulator作用在流上，感兴趣者可以自行搜索。
     
